@@ -1,0 +1,173 @@
+:host {
+  display: block;
+  margin: 1rem 0;
+  border: 1px solid var(--sl-color-gray-5, #50545d);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: var(--sl-color-bg, #fff);
+}
+
+.chartjs-editor__chart-header {
+  margin-bottom: 0.75rem;
+}
+
+canvas {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  block-size: auto;
+  border-radius: 0.5rem;
+  background: white;
+}
+
+.chartjs-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.chartjs-editor__actions button {
+  border: 1px solid var(--sl-color-gray-4, #626772);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  background: var(--sl-color-bg-nav, #f5f5f5);
+  color: var(--sl-color-text, #222);
+  cursor: pointer;
+  font: inherit;
+}
+
+.chartjs-editor__editor {
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--sl-color-gray-4, #626772);
+  border-radius: 0.5rem;
+  background: #282c34;
+}
+
+.chartjs-editor__editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: 40px;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--sl-color-gray-4, #626772);
+  background: var(--sl-color-bg-nav, #f5f5f5);
+}
+
+.chartjs-editor__tabs,
+.chartjs-editor__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.chartjs-editor__tabs {
+  align-self: stretch;
+}
+
+.chartjs-editor__tabs[hidden] {
+  display: none;
+}
+
+.chartjs-editor__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  block-size: 100%;
+  margin: 0 !important;
+  border: 0;
+  padding: 0 0.625rem;
+  background: transparent;
+  color: var(--sl-color-gray-2, #c5c8ce);
+  cursor: pointer;
+  font: 600 12px/1 var(--__sl-font, system-ui, sans-serif);
+}
+
+.chartjs-editor__tab.active {
+  color: var(--sl-color-text-accent, #a8bfff);
+}
+
+.chartjs-editor__tab.active::after {
+  position: absolute;
+  inset: auto 0 0;
+  block-size: 2px;
+  background: var(--sl-color-accent-high, #7592e8);
+  content: '';
+}
+
+.chartjs-editor__tools {
+  margin: 0 0 0 auto !important;
+}
+
+.chartjs-editor__tools button,
+.chartjs-editor__tools a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 28px;
+  margin: 0 !important;
+  border: 0;
+  border-radius: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
+  color: var(--sl-color-gray-2, #c5c8ce);
+  cursor: pointer;
+  font: 500 12px/1 var(--__sl-font, system-ui, sans-serif);
+  text-decoration: none;
+}
+
+.chartjs-editor__tools button:hover,
+.chartjs-editor__tools a:hover {
+  background: var(--sl-color-gray-6, #343842);
+  color: var(--sl-color-text, #fff);
+}
+
+.chartjs-editor__tools [data-chart-run] {
+  background: var(--sl-color-accent-low, #172554);
+  color: var(--sl-color-text-accent, #bfdbfe);
+}
+
+.chartjs-editor__code {
+  block-size: 360px;
+  min-block-size: 220px;
+  overflow: hidden;
+}
+
+.chartjs-editor__error {
+  display: block;
+  padding: 0 0.75rem;
+  color: var(--sl-color-red-high, #f87171);
+  font-family: var(--__sl-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.chartjs-editor__error:not(:empty) {
+  border-top: 1px solid var(--sl-color-gray-4, #626772);
+  padding-block: 0.75rem;
+}
+
+.chartjs-editor__output {
+  border-top: 1px solid var(--sl-color-gray-4, #626772);
+  padding: 0.75rem;
+  background: var(--sl-color-bg-nav, #f5f5f5);
+}
+
+.chartjs-editor__output pre {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 50rem) {
+  .chartjs-editor__editor-header {
+    overflow-x: auto;
+    padding: 0 0.375rem;
+  }
+
+  .chartjs-editor__tabs,
+  .chartjs-editor__tools {
+    flex: 0 0 auto;
+  }
+}
