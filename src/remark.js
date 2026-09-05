@@ -1,6 +1,6 @@
+import { Buffer } from 'node:buffer'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Buffer } from 'node:buffer'
 
 function escapeAttribute(value) {
   return String(value)
@@ -15,7 +15,7 @@ function getMetaValue(meta, name) {
   return match?.[1] ?? match?.[2] ?? match?.[3]
 }
 
-function editorMarkup({code, frontmatter = {}, meta, options = {}, pathname}) {
+function editorMarkup({ code, frontmatter = {}, meta, options = {}, pathname }) {
   const title = getMetaValue(meta, 'title') ?? frontmatter.chartTitle ?? frontmatter.title ?? ''
   const height = Number(getMetaValue(meta, 'height') ?? frontmatter.chartHeight ?? 420)
   let sourceUrl = ''
@@ -60,7 +60,6 @@ export function remarkChartEditor(options = {}) {
 
 export function satteriChartEditor(options = {}) {
   return {
-    name: '@kurkle/astro-chartjs-editor',
     code(node, context) {
       if (!['js', 'javascript'].includes(node.lang ?? '')) return
       if (!/(?:^|\s)chart-editor(?:\s|$)/.test(node.meta ?? '')) return
@@ -76,5 +75,6 @@ export function satteriChartEditor(options = {}) {
         }),
       }
     },
+    name: '@kurkle/astro-chartjs-editor',
   }
 }

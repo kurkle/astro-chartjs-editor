@@ -23,9 +23,7 @@ export function parseSections(value) {
 
   segments.push({ ...current, code: value.slice(current.start).trim() })
   const populated = segments.filter((segment) => segment.code)
-  const sections = populated
-    .filter((segment) => segment.name)
-    .sort((a, b) => a.order - b.order)
+  const sections = populated.filter((segment) => segment.name).sort((a, b) => a.order - b.order)
 
   if (!sections.length) {
     return {

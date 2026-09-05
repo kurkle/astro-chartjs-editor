@@ -1,18 +1,18 @@
+import { remarkChartEditor, satteriChartEditor } from '../src/remark.js'
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { remarkChartEditor, satteriChartEditor } from '../src/remark.js'
 
 test('turns a chart-editor fence into an editor element', () => {
   const tree = {
-    type: 'root',
     children: [
       {
-        type: 'code',
         lang: 'js',
         meta: 'chart-editor height=600',
+        type: 'code',
         value: 'module.exports = {config: {}}',
       },
     ],
+    type: 'root',
   }
   const file = { data: { astro: { frontmatter: { title: 'Example' } } } }
   remarkChartEditor()(tree, file)
@@ -32,9 +32,9 @@ test('provides the equivalent Sätteri code visitor', () => {
       value: 'module.exports = {config: {}}',
     },
     {
-      data: {astro: {frontmatter: {title: 'Sätteri example'}}},
+      data: { astro: { frontmatter: { title: 'Sätteri example' } } },
       fileURL: undefined,
-    },
+    }
   )
 
   assert.equal(result.type, 'html')
