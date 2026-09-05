@@ -17,10 +17,11 @@ jobs:
       run-typecheck: false
       run-build: false
       browser-tests: false
-      run-sonar: false
+      run-sonar: true
       coverage-paths: ''
       extra-command: npm run pack:check
-    secrets: inherit
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   release:
     runs-on: ubuntu-latest
