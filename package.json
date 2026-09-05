@@ -1,8 +1,21 @@
 {
-  "name": "@kurkle/astro-chartjs-editor",
-  "version": "0.0.0-development",
+  "author": "Jukka Kurkela",
+  "bugs": {
+    "url": "https://github.com/kurkle/astro-chartjs-editor/issues"
+  },
+  "dependencies": {
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "codemirror": "^6.0.2"
+  },
   "description": "Editable Chart.js samples in Astro Markdown",
-  "type": "module",
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
+    "@emnapi/core": "^1.11.2",
+    "@emnapi/runtime": "^1.11.2",
+    "@kurkle/configs": "^1.0.1",
+    "semantic-release": "^25.0.3"
+  },
   "exports": {
     ".": "./src/integration.js",
     "./client": "./src/client.js",
@@ -14,15 +27,7 @@
     "README.md",
     "LICENSE"
   ],
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
-  "scripts": {
-    "lint": "node --check src/client.js && node --check src/editor.js && node --check src/integration.js && node --check src/remark.js && node --check src/sections.js",
-    "pack:check": "npm pack --dry-run",
-    "test": "node --test"
-  },
+  "homepage": "https://github.com/kurkle/astro-chartjs-editor#readme",
   "keywords": [
     "astro",
     "astro-integration",
@@ -30,28 +35,27 @@
     "codemirror",
     "starlight"
   ],
-  "author": "Jukka Kurkela",
   "license": "MIT",
+  "name": "@kurkle/astro-chartjs-editor",
+  "peerDependencies": {
+    "astro": "^5.0.0 || ^6.0.0 || ^7.0.0",
+    "chart.js": "^4.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kurkle/astro-chartjs-editor.git"
   },
-  "bugs": {
-    "url": "https://github.com/kurkle/astro-chartjs-editor/issues"
+  "scripts": {
+    "format": "biome check --write",
+    "lint": "biome check",
+    "pack:check": "npm pack --dry-run",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "test": "node --test"
   },
-  "homepage": "https://github.com/kurkle/astro-chartjs-editor#readme",
-  "dependencies": {
-    "@codemirror/lang-javascript": "^6.2.5",
-    "@codemirror/theme-one-dark": "^6.1.3",
-    "codemirror": "^6.0.2"
-  },
-  "devDependencies": {
-    "@emnapi/core": "^1.11.2",
-    "@emnapi/runtime": "^1.11.2",
-    "semantic-release": "^25.0.3"
-  },
-  "peerDependencies": {
-    "astro": "^5.0.0 || ^6.0.0 || ^7.0.0",
-    "chart.js": "^4.0.0"
-  }
+  "type": "module",
+  "version": "0.0.0-development"
 }

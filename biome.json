@@ -1,0 +1,6 @@
+{
+  "extends": ["./node_modules/@kurkle/configs/biome.json"],
+  "files": {
+    "includes": ["biome.json", "package.json", "src/**/*.js", "test/**/*.js"]
+  }
+}
