@@ -1,6 +1,7 @@
 import { javascript } from '@codemirror/lang-javascript'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { basicSetup, EditorView } from 'codemirror'
+
 import { parseSections } from './sections.js'
 
 const editorTheme = EditorView.theme({

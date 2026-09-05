@@ -1,6 +1,6 @@
+import { parseSections } from '../src/sections.js'
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseSections } from '../src/sections.js'
 
 test('uses a single JS section without block markers', () => {
   const parsed = parseSections('const config = {}')

@@ -1,6 +1,6 @@
-import { createChart, globals } from 'virtual:astro-chartjs-editor/runtime'
 import { SampleEditor } from './editor.js'
 import editorStyles from './styles.css?inline'
+import { createChart, globals } from 'virtual:astro-chartjs-editor/runtime'
 
 function evaluateSample(code, sampleConsole) {
   const module = { exports: {} }
@@ -16,7 +16,12 @@ function evaluateSample(code, sampleConsole) {
     'console',
     `${code}\nreturn module.exports;`
   )
-  return fn(module, module.exports, ...globalNames.map((name) => sampleGlobals[name]), sampleConsole)
+  return fn(
+    module,
+    module.exports,
+    ...globalNames.map((name) => sampleGlobals[name]),
+    sampleConsole
+  )
 }
 
 function formatMessage(values) {
@@ -161,11 +166,17 @@ class ChartEditorElement extends HTMLElement {
         outputNode.hidden = !output
         refreshOutput(typeof output === 'string' ? output : undefined)
       } catch (error) {
-        errorNode.textContent = error instanceof Error ? (error.stack ?? error.message) : String(error)
+        errorNode.textContent =
+          error instanceof Error ? (error.stack ?? error.message) : String(error)
       }
     }
 
-    editor = new SampleEditor({ code: initialCode, onChange: render, parent: codeNode, tabs: tabsNode })
+    editor = new SampleEditor({
+      code: initialCode,
+      onChange: render,
+      parent: codeNode,
+      tabs: tabsNode,
+    })
     runButton.addEventListener('click', () => render(editor.value))
     copyButton.addEventListener('click', async () => {
       await copyText(editor.value)

@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
 import { remarkChartEditor, satteriChartEditor } from './remark.js'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const VIRTUAL_RUNTIME = 'virtual:astro-chartjs-editor/runtime'
 const RESOLVED_RUNTIME = `\0${VIRTUAL_RUNTIME}`
@@ -11,16 +11,15 @@ export default function chartEditor(options) {
   }
 
   return {
-    name: '@kurkle/astro-chartjs-editor',
     hooks: {
       'astro:config:setup'({ config, injectScript, updateConfig }) {
         const root = fileURLToPath(config.root)
         const runtime = path.resolve(root, options.runtime)
         const runtimePlugin = {
-          name: '@kurkle/astro-chartjs-editor/runtime',
           load(id) {
             if (id === RESOLVED_RUNTIME) return `export * from ${JSON.stringify(runtime)}`
           },
+          name: '@kurkle/astro-chartjs-editor/runtime',
           resolveId(id) {
             if (id === VIRTUAL_RUNTIME) return RESOLVED_RUNTIME
           },
@@ -41,7 +40,7 @@ export default function chartEditor(options) {
         }
 
         updateConfig({
-          ...(markdown.remarkPlugins ? {markdown} : {}),
+          ...(markdown.remarkPlugins ? { markdown } : {}),
           vite: {
             plugins: [runtimePlugin],
           },
@@ -49,5 +48,6 @@ export default function chartEditor(options) {
         injectScript('page', `import '@kurkle/astro-chartjs-editor/client'`)
       },
     },
+    name: '@kurkle/astro-chartjs-editor',
   }
 }
