@@ -9,7 +9,14 @@ permissions:
 
 jobs:
   shared-ci:
-    uses: ./.github/workflows/shared-ci.yml
+    uses: kurkle/configs/.github/workflows/shared-ci.yml@v1
     with:
       fetch-depth: 1
       run-audit-signatures: false
+      run-typecheck: false
+      run-build: false
+      browser-tests: false
+      run-sonar: false
+      coverage-paths: ''
+      extra-command: npm run pack:check
+    secrets: inherit
