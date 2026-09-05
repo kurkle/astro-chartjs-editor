@@ -1,5 +1,9 @@
 # @kurkle/astro-chartjs-editor
 
+[![npm](https://img.shields.io/npm/v/@kurkle/astro-chartjs-editor.svg)](https://www.npmjs.com/package/@kurkle/astro-chartjs-editor)
+[![release](https://img.shields.io/github/release/kurkle/astro-chartjs-editor.svg?style=flat-square)](https://github.com/kurkle/astro-chartjs-editor/releases/latest)
+![GitHub](https://img.shields.io/github/license/kurkle/astro-chartjs-editor.svg)
+
 Editable Chart.js samples directly in Astro Markdown.
 
 ## Setup
