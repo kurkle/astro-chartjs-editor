@@ -16,6 +16,9 @@
     "@kurkle/configs": "^1.0.1",
     "semantic-release": "^25.0.3"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": "./src/integration.js",
     "./client": "./src/client.js",
