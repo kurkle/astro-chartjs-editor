@@ -42,3 +42,110 @@ test('provides the equivalent Sätteri code visitor', () => {
   assert.match(result.value, /data-height="500"/)
   assert.match(result.value, /<template data-chart-code data-encoding="base64">/)
 })
+
+test('leaves a fence untouched when it has no chart-editor marker', () => {
+  const codeNode = {
+    lang: 'js',
+    meta: null,
+    type: 'code',
+    value: 'const config = {}',
+  }
+  const tree = { children: [codeNode], type: 'root' }
+  const file = { data: {} }
+  remarkChartEditor()(tree, file)
+  assert.equal(tree.children[0], codeNode)
+  assert.equal(tree.children[0].type, 'code')
+})
+
+test('leaves a fence untouched when the language is not js/javascript', () => {
+  const codeNode = {
+    lang: 'python',
+    meta: 'chart-editor',
+    type: 'code',
+    value: 'config = {}',
+  }
+  const tree = { children: [codeNode], type: 'root' }
+  const file = { data: {} }
+  remarkChartEditor()(tree, file)
+  assert.equal(tree.children[0], codeNode)
+})
+
+test('ignores non-code nodes while walking the tree', () => {
+  const tree = {
+    children: [
+      {
+        children: [
+          {
+            lang: 'js',
+            meta: 'chart-editor',
+            type: 'code',
+            value: 'module.exports = {config: {}}',
+          },
+        ],
+        type: 'paragraph',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: {} }
+  remarkChartEditor()(tree, file)
+  assert.equal(tree.children[0].children[0].type, 'html')
+})
+
+test('defaults the height to 420 and the title to empty when neither meta nor frontmatter set them', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: {} }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-title=""/)
+  assert.match(tree.children[0].value, /data-height="420"/)
+})
+
+test('omits the source link when sourceBaseUrl is not configured', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: {}, path: '/project/docs/sample.md' }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-source-url=""/)
+})
+
+test('builds a source link relative to sourceRoot when sourceBaseUrl is configured', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: {}, path: '/project/docs/sample.md' }
+  remarkChartEditor({
+    sourceBaseUrl: 'https://github.com/example/project/blob/main/',
+    sourceRoot: '/project',
+  })(tree, file)
+  assert.match(
+    tree.children[0].value,
+    /data-source-url="https:\/\/github\.com\/example\/project\/blob\/main\/docs\/sample\.md"/
+  )
+})
