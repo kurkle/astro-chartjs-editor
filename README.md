@@ -16,13 +16,11 @@ export default defineConfig({
   integrations: [
     chartEditor({
       runtime: './docs/chart-runtime.js',
-      sourceBaseUrl: 'https://github.com/kurkle/chartjs-chart-sankey/blob/main/',
+      sourceBaseUrl: 'https://github.com/you/your-project/blob/main/',
     }),
   ],
 })
 ```
-
-(Copied from `chartjs-chart-sankey`'s `astro.config.mjs`.)
 
 Integration options:
 
@@ -34,7 +32,7 @@ Integration options:
 
 The integration injects a page script (`import '@kurkle/astro-chartjs-editor/client'`) and registers a remark plugin that transforms `chart-editor` fences (see [Samples](#samples)). It detects three ways Astro's Markdown pipeline can be configured and adapts without ever silently dropping the plugin:
 
-- if `markdown.processor` is a Sätteri processor with an `options.mdastPlugins` array, it pushes its own mdast plugin into that array;
+- if `markdown.processor` is a satteri processor with an `options.mdastPlugins` array, it pushes its own mdast plugin into that array;
 - otherwise, if `markdown.processor.options.remarkPlugins` is already an array, it pushes `[remarkChartEditor, options]` into that array;
 - otherwise, it sets `markdown.remarkPlugins` on the config it hands to `updateConfig`.
 
@@ -44,24 +42,17 @@ The runtime module you point `runtime` at is loaded through a virtual Vite modul
 
 ```js
 import Chart from 'chart.js/auto'
-import { Flow, SankeyController } from '../dist/chartjs-chart-sankey.esm.js'
-import * as helpers from './scripts/helpers.js'
-import * as Utils from './scripts/utils.js'
 
-Chart.register(SankeyController, Flow)
-
-export const globals = { Chart, Utils, helpers }
+export const globals = { Chart }
 
 export function createChart(canvas, config) {
   return new Chart(canvas, config)
 }
 ```
 
-(Copied and lightly trimmed from `chartjs-chart-sankey`'s `docs/chart-runtime.js`, which is the only real-world consumer today.)
-
 ### `globals`
 
-`globals` is a plain object. Every key becomes a bare identifier that sample code can reference directly, with the corresponding value bound as its value — sankey exposes only `Chart`, but nothing stops a runtime module from exposing more, and a future matrix/treemap runtime module is expected to add its own `Utils` and/or `helpers` exports the same way, alongside `Chart`.
+`globals` is a plain object. Every key becomes a bare identifier that sample code can reference directly, bound to the corresponding value. `Chart` is the only export any sample needs by default, but a runtime module is free to export as many additional named values as it wants the same way — for example, helper modules that a chart type's own samples rely on. Sample code doesn't need to know or care where an identifier came from, only that `globals` exposed it.
 
 Two constraints, enforced at sample-evaluation time (in the browser, per sample), not at build time:
 
@@ -78,7 +69,9 @@ Called once per render with the `<canvas>` element and the sample's evaluated `c
 
 ### `sourceBaseUrl`
 
-When set, each rendered sample gets a **View source** link. The link is built as `sourceBaseUrl + <path of the Markdown file, relative to sourceRoot, with OS separators normalized to '/'>`. `sourceRoot` defaults to the Astro project root, so with the example above and a sample fence living in `chartjs-chart-sankey`'s `src/content/docs/samples/basic.md` (relative to that repo's root, where its `astro.config.mjs` also lives), the link becomes `https://github.com/kurkle/chartjs-chart-sankey/blob/main/src/content/docs/samples/basic.md`. If `sourceBaseUrl` isn't set (or the file's path isn't available, e.g. some Sätteri contexts without a `fileURL`), the link is omitted entirely — the toolbar just doesn't get a "View source" entry, nothing errors.
+When set, each rendered sample gets a **View source** link. The link is built as `sourceBaseUrl + <path of the Markdown file, relative to sourceRoot, with OS separators normalized to '/'>`. `sourceRoot` defaults to the Astro project root. For example, with `sourceBaseUrl: 'https://github.com/example/project/blob/main/'` and a sample fence in a file at `docs/sample.md` (relative to `sourceRoot`), the link becomes `https://github.com/example/project/blob/main/docs/sample.md`.
+
+If `sourceBaseUrl` isn't set, or the file's path isn't available (`file.path` for the remark plugin, or `context.fileURL` for the satteri code visitor — both are optional inputs the caller may leave unset), the link is omitted entirely — the toolbar just doesn't get a "View source" entry, nothing errors.
 
 ## Samples
 
@@ -88,13 +81,11 @@ Mark a JavaScript fence with `chart-editor`:
 ```js chart-editor height=500
 // <block:data:1>
 const data = {
+  labels: ['Q1', 'Q2', 'Q3', 'Q4'],
   datasets: [
     {
-      label: 'Basic sankey',
-      data: [
-        { from: 'A', to: 'B', flow: 10 },
-        { from: 'A', to: 'C', flow: 5 },
-      ],
+      label: 'Revenue',
+      data: [12, 19, 8, 15],
     },
   ],
 }
@@ -102,7 +93,7 @@ const data = {
 
 // <block:config:0>
 const config = {
-  type: 'sankey',
+  type: 'bar',
   data,
 }
 // </block:config>
@@ -112,8 +103,6 @@ module.exports = {
 }
 ```
 ````
-
-(Copied and trimmed from `chartjs-chart-sankey`'s `src/content/docs/samples/basic.md`, with `height=500` added to the fence's meta to illustrate the parameter documented below — the real sample doesn't set it and gets the `420` default instead.)
 
 Only a fence with `js` or `javascript` as its language **and** the standalone word `chart-editor` in its meta string is transformed. Anything else (wrong language, missing marker) is left as a normal, unprocessed code fence — no error, no chart editor UI.
 
@@ -164,8 +153,8 @@ module.exports = {
 ```
 
 - **`config`** is required in practice (it's what gets passed to `createChart`); there's no explicit validation if it's missing, so an undefined `config` is passed straight through to the runtime's `createChart`.
-- **`actions`** is a list of `{ name, handler }` pairs. Each renders as a button above the chart; clicking it calls `handler(chart)` with the live chart instance. **This is already supported today** — it is not a gap that matrix/treemap migration would need to add. It just isn't documented or exercised by the only current consumer (sankey), which is why it wasn't visible from outside `src/`.
-- **`output`** controls an "Output" panel below the chart that mirrors `console.log(...)` calls made by the sample (up to the last 50 messages, newline-joined) in addition to the real console. `false` (default) hides the panel entirely. `true` shows it, starting with a `...` placeholder until the first log call. A string shows it starting with that string as the placeholder instead of `...`. This is also already supported and, like `actions`, undocumented and unused by sankey today.
+- **`actions`** is a list of `{ name, handler }` pairs. Each renders as a button above the chart; clicking it calls `handler(chart)` with the live chart instance. This is already implemented in `src/client.js` — it simply wasn't documented until now.
+- **`output`** controls an "Output" panel below the chart that mirrors `console.log(...)` calls made by the sample (up to the last 50 messages, newline-joined) in addition to the real console. `false` (default) hides the panel entirely. `true` shows it, starting with a `...` placeholder until the first log call. A string shows it starting with that string as the placeholder instead of `...`. This is also already implemented and, like `actions`, simply wasn't documented until now.
 
 ## Error behavior
 
