@@ -1,4 +1,11 @@
 import { normalizeCharts } from './charts.js'
+import {
+  applyChoices,
+  indexOfValue,
+  initialValueFor,
+  normalizeChoices,
+  readoutText,
+} from './choices.js'
 import { SampleEditor } from './editor.js'
 import editorStyles from './styles.css?inline'
 import { createChart, globals } from 'virtual:astro-chartjs-editor/runtime'
@@ -130,6 +137,162 @@ function createButton(label, attribute) {
   return button
 }
 
+function uid() {
+  return `chartjs-editor-${crypto.randomUUID()}`
+}
+
+const ARROW_STEPS = { ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1 }
+
+/**
+ * A segmented row acting as a `radiogroup`: arrow keys move the selection
+ * (not just focus, matching native radio-group behavior), and only the
+ * active segment sits in the tab order.
+ */
+function buildRadioControl(choice, selections, onSelect) {
+  const labelId = uid()
+  const label = document.createElement('span')
+  label.id = labelId
+  label.className = 'chartjs-editor__choice-label'
+  label.textContent = choice.label
+
+  const group = document.createElement('div')
+  group.className = 'chartjs-editor__segmented'
+  group.setAttribute('role', 'radiogroup')
+  group.setAttribute('aria-labelledby', labelId)
+
+  const buttons = choice.options.map((option) => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'chartjs-editor__segment'
+    button.setAttribute('role', 'radio')
+    button.textContent = option.label
+    return button
+  })
+  group.append(...buttons)
+
+  const applyIndex = (index, focus) => {
+    selections[choice.path] = choice.options[index].value
+    for (const [i, button] of buttons.entries()) {
+      const active = i === index
+      button.classList.toggle('active', active)
+      button.setAttribute('aria-checked', String(active))
+      button.tabIndex = active ? 0 : -1
+      if (active && focus) button.focus()
+    }
+  }
+
+  buttons.forEach((button, index) => {
+    button.addEventListener('click', () => {
+      applyIndex(index, false)
+      onSelect()
+    })
+  })
+  group.addEventListener('keydown', (event) => {
+    const step = ARROW_STEPS[event.key]
+    if (!step) return
+    event.preventDefault()
+    const current = buttons.findIndex((button) => button.classList.contains('active'))
+    applyIndex((current + step + buttons.length) % buttons.length, true)
+    onSelect()
+  })
+
+  applyIndex(Math.max(0, indexOfValue(choice.options, selections[choice.path])), false)
+  return { control: group, label }
+}
+
+function buildSelectControl(choice, selections, onSelect) {
+  const id = uid()
+  const label = document.createElement('label')
+  label.htmlFor = id
+  label.textContent = choice.label
+
+  const select = document.createElement('select')
+  select.id = id
+  for (const [index, option] of choice.options.entries()) {
+    const optionNode = document.createElement('option')
+    optionNode.value = String(index)
+    optionNode.textContent = option.label
+    select.append(optionNode)
+  }
+  select.value = String(Math.max(0, indexOfValue(choice.options, selections[choice.path])))
+  select.addEventListener('change', () => {
+    selections[choice.path] = choice.options[Number(select.value)].value
+    onSelect()
+  })
+  return { control: select, label }
+}
+
+function buildRangeControl(choice, selections, onSelect) {
+  const id = uid()
+  const label = document.createElement('label')
+  label.htmlFor = id
+  label.textContent = choice.label
+
+  const input = document.createElement('input')
+  input.type = 'range'
+  input.id = id
+  input.min = String(choice.min)
+  input.max = String(choice.max)
+  input.step = String(choice.step)
+  const current = selections[choice.path]
+  input.value = String(typeof current === 'number' ? current : choice.min)
+  input.addEventListener('input', () => {
+    selections[choice.path] = input.valueAsNumber
+    onSelect()
+  })
+  return { control: input, label }
+}
+
+function buildCheckboxControl(choice, selections, onSelect) {
+  const id = uid()
+  const input = document.createElement('input')
+  input.type = 'checkbox'
+  input.id = id
+  input.checked = Boolean(selections[choice.path])
+  input.addEventListener('change', () => {
+    selections[choice.path] = input.checked
+    onSelect()
+  })
+
+  const label = document.createElement('label')
+  label.htmlFor = id
+  label.textContent = choice.label
+  return { control: input, label }
+}
+
+const CONTROL_BUILDERS = {
+  checkbox: buildCheckboxControl,
+  radio: buildRadioControl,
+  range: buildRangeControl,
+  select: buildSelectControl,
+}
+
+/**
+ * One choice's control group: its label, the control itself, and a
+ * copy-pasteable `path: value` readout. The readout matters as much as the
+ * control -- the code panel it stands in for is collapsed by default (see
+ * .chartjs-editor__details), so this is what teaches the syntax to a reader
+ * who never opens it.
+ */
+function buildChoiceControl(choice, selections, onSelect) {
+  const wrapper = document.createElement('div')
+  wrapper.className = 'chartjs-editor__choice'
+
+  const output = document.createElement('output')
+  output.className = 'chartjs-editor__readout'
+  output.setAttribute('aria-live', 'polite')
+  output.textContent = readoutText(choice, selections[choice.path])
+
+  const notify = () => {
+    output.textContent = readoutText(choice, selections[choice.path])
+    onSelect()
+  }
+  const { control, label } = CONTROL_BUILDERS[choice.control](choice, selections, notify)
+
+  wrapper.append(label, control, output)
+  return wrapper
+}
+
 function readCode(template) {
   const value = template?.content.textContent ?? ''
   if (template?.dataset.encoding !== 'base64') return value
@@ -159,6 +322,9 @@ class ChartEditorElement extends HTMLElement {
 
     const actionsNode = document.createElement('div')
     actionsNode.className = 'chartjs-editor__actions'
+    const choicesNode = document.createElement('div')
+    choicesNode.className = 'chartjs-editor__choices'
+    choicesNode.hidden = true
     const editorNode = document.createElement('div')
     editorNode.className = 'chartjs-editor__editor'
     const editorHeader = document.createElement('div')
@@ -207,10 +373,47 @@ class ChartEditorElement extends HTMLElement {
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' })
     const style = document.createElement('style')
     style.textContent = editorStyles
-    root.replaceChildren(style, header, chartsGrid, actionsNode, detailsNode)
+    root.replaceChildren(style, header, chartsGrid, actionsNode, choicesNode, detailsNode)
 
     let charts = []
     let editor
+    let baseEntries = []
+    let choiceDescriptors = []
+    let selections = {}
+    let currentActions = []
+    let currentIsMulti = false
+
+    // Applies every choice's current selection to a fresh clone of each
+    // entry's config, then recreates every chart from the rebuilt configs
+    // (never chart.options + update()). This is what applyChoices() +
+    // renderCharts() give for free: the result doesn't depend on the order
+    // options happen to resolve in, and holds the same way whether a choice
+    // targets `options` or `data`.
+    const rebuildCharts = () => {
+      const built = baseEntries.map((entry) => ({
+        ...entry,
+        config: applyChoices(entry.config, choiceDescriptors, selections),
+      }))
+      charts = renderCharts(chartsGrid, charts, built, height, title)
+      renderActions(actionsNode, currentActions, charts, currentIsMulti)
+    }
+
+    const applySelectionChange = () => {
+      try {
+        rebuildCharts()
+        errorNode.replaceChildren()
+      } catch (error) {
+        renderError(errorNode, error)
+      }
+    }
+
+    const renderChoices = () => {
+      choicesNode.replaceChildren()
+      choicesNode.hidden = choiceDescriptors.length === 0
+      for (const choice of choiceDescriptors) {
+        choicesNode.append(buildChoiceControl(choice, selections, applySelectionChange))
+      }
+    }
 
     // CodeMirror measures its own layout while building the initial view,
     // which happens while <details> is still closed (offsetWidth/Height 0
@@ -240,11 +443,20 @@ class ChartEditorElement extends HTMLElement {
       try {
         const sampleExports = evaluateSample(code, sampleConsole)
         const entries = normalizeCharts(sampleExports)
+        const descriptors = normalizeChoices(sampleExports)
         const { actions = [], output = false } = sampleExports
-        const isMulti = Array.isArray(sampleExports.charts)
 
-        charts = renderCharts(chartsGrid, charts, entries, height, title)
-        renderActions(actionsNode, actions, charts, isMulti)
+        baseEntries = entries
+        choiceDescriptors = descriptors
+        currentActions = actions
+        currentIsMulti = Array.isArray(sampleExports.charts)
+        selections = {}
+        for (const choice of choiceDescriptors) {
+          selections[choice.path] = initialValueFor(choice, entries[0]?.config)
+        }
+
+        renderChoices()
+        rebuildCharts()
         outputNode.hidden = !output
         refreshOutput(typeof output === 'string' ? output : undefined)
       } catch (error) {

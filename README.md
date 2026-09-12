@@ -191,13 +191,67 @@ Exporting both `config` and `charts`, or neither, throws immediately when the sa
 
 This logic lives in `src/charts.js` (`normalizeCharts`), covered by `test/charts.test.js`.
 
+### Featured option: `choices`
+
+A sample almost always demonstrates one particular option. Rather than leaving a reader to find it inside a (collapsed, see below) code panel, a sample can declare it as a live control that renders between the chart(s) and the code:
+
+```js
+module.exports = {
+  config,
+  choices: [
+    { path: 'options.nodePaddingMode', values: ['auto', 'even'], control: 'radio', label: 'Padding mode' },
+    { path: 'options.nodeMinSize', min: 0, max: 20, step: 2, control: 'range' },
+    { path: 'options.colorMode', values: ['gradient', 'from', 'to'], control: 'select' },
+  ],
+}
+```
+
+| Field                | Required                    | Meaning                                                                                                                    |
+| --------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `path`                | yes                          | Dotted path into the chart configuration, e.g. `options.nodeMinSize` or `data.datasets.0.borderWidth`. Also the text shown in the readout. |
+| `values`              | one of `values` / `min`+`max` | The alternatives. A plain value, or `{ value, label }` when a value is an object or needs a friendlier name.               |
+| `min`, `max`, `step`  | —                             | A numeric range instead of a fixed list. `step` defaults to `1`.                                                            |
+| `control`             | no                            | `'radio'`, `'select'`, `'range'`, or `'checkbox'`. Defaulted from the declaration when omitted, see below.                  |
+| `label`               | no                            | Defaults to the last segment of `path`.                                                                                     |
+
+When `control` isn't set, it's derived from the declaration: 2–4 `values` → `radio`; 5 or more `values` → `select`; `min`/`max` → `range`; `values: [true, false]` → `checkbox`.
+
+The control's initial selection is read from the sample's own `config` (or the first entry's `config` when exporting `charts`) at `path`, not from `values[0]` — so the control and the code never disagree about the current state. A choice applies to **every** chart in the block: with `charts`, the same path/value is set on every entry's config. A control that should affect only one chart calls for two separate blocks instead.
+
+Each control shows a copy-pasteable readout (`options.nodePaddingMode: 'even'`) next to it — this is deliberate: the full code panel is collapsed by default (see below), so the readout is what teaches the syntax to a reader who never opens it.
+
+Applying a selection rebuilds the affected chart's configuration and re-creates the chart, rather than assigning into `chart.options` and calling `chart.update()`. That choice isn't about `update()` being unsafe — it's that rebuilding doesn't depend on the order options happen to resolve in, and it works the same way whether a choice targets `options` or `data`, so one code path covers every declared choice.
+
+This logic lives in `src/choices.js` (`normalizeChoices`, `getValueAtPath`, `setValueAtPath`, `applyChoices`, `initialValueFor`, `readoutText`, and friends), covered by `test/choices.test.js`. The DOM that renders the controls is in `src/client.js`, covered by the browser suite (`test/browser/choices.spec.js`).
+
+#### Styling the controls
+
+The controls are inside the custom element's shadow root, so ordinary page selectors can't reach them. Two CSS custom properties pierce the shadow boundary instead:
+
+| Custom property                      | Affects                                                    | Default   |
+| -------------------------------------- | ------------------------------------------------------------ | ----------- |
+| `--chartjs-editor-control-accent`     | The active radio segment's background, and the focus/accent color of every control | `#4133b0` |
+| `--chartjs-editor-control-gap`        | Spacing between control groups, and within a group           | `0.6rem`–`0.85rem` |
+
+Set them on any ancestor of `<astro-chartjs-editor>` (they inherit through the shadow boundary like any other custom property):
+
+```css
+astro-chartjs-editor {
+  --chartjs-editor-control-accent: #0ea5e9;
+}
+```
+
 ## Error behavior
 
 | Situation                                                       | What happens                                                                                                                                                                                                     |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A fence isn't `js`/`javascript`, or is missing the `chart-editor` marker | Left completely untouched by the remark plugin. Renders as an ordinary fenced code block. Never an error.                                                                                                       |
-| Sample code throws when evaluated (syntax error or runtime throw) | Caught in the browser, per render. The error's stack (or message) is shown in an inline error element; the previously rendered chart, if any, is left as-is. This never touches the Astro build — remark only base64-encodes the source text at build time and never evaluates it. |
+| Sample code throws when evaluated (syntax error or runtime throw), including an invalid `choices` declaration | Caught in the browser, per render. The error's message is shown in an inline error element, with the stack behind a disclosure; the previously rendered chart, if any, is left as-is. This never touches the Astro build — remark only base64-encodes the source text at build time and never evaluates it. |
 | `runtime` points at a path with no matching file                  | Not checked at all by `integration.js` — the path is resolved with `path.resolve()` regardless of whether anything exists there. The virtual module's `load()` hook then emits `export * from "<that path>"` literally. Based on how Vite/Rollup resolve `load()` output, this becomes a **module resolution failure at dev-server/build time**, not a browser-only error — but this project has no Astro project scaffolded to actually run `astro build` against, so this specific claim is inferred from source and standard Vite/Rollup module-resolution semantics, not executed. Treat it as high-confidence but unverified by an actual build. |
+
+## The code panel
+
+The tabs, editor, **Run**/**Copy**/**Reset**/**View source** toolbar, error area and output panel all sit inside a `<details>` element, collapsed by default, with "Full configuration" as its summary. The chart(s) and any `choices` controls are always visible above it. The panel sizes to its content (up to a `max-block-size` of 360px, scrolling past that) instead of reserving a fixed height regardless of how much code a sample has.
 
 ## Exports
 
@@ -205,6 +259,7 @@ This logic lives in `src/charts.js` (`normalizeCharts`), covered by `test/charts
 | --------------------------------- | -------------------- |
 | `@kurkle/astro-chartjs-editor`     | `src/integration.js` (the default export, `chartEditor(options)`) |
 | `@kurkle/astro-chartjs-editor/charts` | `src/charts.js` (`normalizeCharts`, used internally to validate and flatten the `config`/`charts` contract) |
+| `@kurkle/astro-chartjs-editor/choices` | `src/choices.js` (`normalizeChoices` and friends, used internally to validate and apply the `choices` contract) |
 | `@kurkle/astro-chartjs-editor/client` | `src/client.js` (the page script injected automatically; you shouldn't need to import it yourself) |
 | `@kurkle/astro-chartjs-editor/remark` | `src/remark.js` (`remarkChartEditor`, `satteriChartEditor`) |
 | `@kurkle/astro-chartjs-editor/sections` | `src/sections.js` (`parseSections`, used internally to split block-marker code into tabs) |
