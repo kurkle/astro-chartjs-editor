@@ -196,13 +196,30 @@ class ChartEditorElement extends HTMLElement {
     const outputContentNode = document.createElement('pre')
     outputNode.append(outputHeading, outputContentNode)
     editorNode.append(editorHeader, codeNode, errorNode, outputNode)
+
+    const detailsNode = document.createElement('details')
+    detailsNode.className = 'chartjs-editor__details'
+    const summaryNode = document.createElement('summary')
+    summaryNode.className = 'chartjs-editor__summary'
+    summaryNode.textContent = 'Full configuration'
+    detailsNode.append(summaryNode, editorNode)
+
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' })
     const style = document.createElement('style')
     style.textContent = editorStyles
-    root.replaceChildren(style, header, chartsGrid, actionsNode, editorNode)
+    root.replaceChildren(style, header, chartsGrid, actionsNode, detailsNode)
 
     let charts = []
     let editor
+
+    // CodeMirror measures its own layout while building the initial view,
+    // which happens while <details> is still closed (offsetWidth/Height 0
+    // for anything inside it). Opening the panel doesn't fire a resize
+    // event for its now-visible descendants on its own, so ask the view to
+    // remeasure explicitly once it becomes visible.
+    detailsNode.addEventListener('toggle', () => {
+      if (detailsNode.open) editor?.view.requestMeasure()
+    })
 
     const render = (code) => {
       errorNode.replaceChildren()

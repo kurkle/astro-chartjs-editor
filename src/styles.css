@@ -48,8 +48,41 @@ canvas {
   font: inherit;
 }
 
-.chartjs-editor__editor {
+.chartjs-editor__details {
   margin-top: 1rem;
+}
+
+.chartjs-editor__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  color: var(--sl-color-text, #222);
+  font: 600 13px var(--__sl-font, system-ui, sans-serif);
+  list-style: none;
+}
+
+.chartjs-editor__summary::-webkit-details-marker {
+  display: none;
+}
+
+.chartjs-editor__summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.chartjs-editor__details[open] > .chartjs-editor__summary::before {
+  transform: rotate(90deg);
+}
+
+.chartjs-editor__summary:focus-visible {
+  outline: 2px solid var(--sl-color-accent-high, #7592e8);
+  outline-offset: 2px;
+}
+
+.chartjs-editor__editor {
+  margin-top: 0.5rem;
   overflow: hidden;
   border: 1px solid var(--sl-color-gray-4, #626772);
   border-radius: 0.5rem;
@@ -141,9 +174,7 @@ canvas {
 }
 
 .chartjs-editor__code {
-  block-size: 360px;
-  min-block-size: 220px;
-  overflow: hidden;
+  max-block-size: 360px;
 }
 
 .chartjs-editor__error {

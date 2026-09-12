@@ -21,7 +21,7 @@ import '../../src/client.js'
 import basicPng from '../fixtures/basic.png?url'
 import editedPng from '../fixtures/edited.png?url'
 import multiPng from '../fixtures/multi.png?url'
-import { clickRun, replaceCurrentSectionCode, selectTab } from './interactions.js'
+import { clickRun, openDetails, replaceCurrentSectionCode, selectTab } from './interactions.js'
 import { diffImageData, readImageData } from './pixel.js'
 import { BASIC_SAMPLE, EDITED_DATA_CODE, MULTI_SAMPLE_TEXTLESS } from './samples.js'
 import { hasInk, mount, shadowOf, unmount } from './utils.js'
@@ -96,6 +96,7 @@ it('matches the edited chart reference image, proving an edit redraws the chart'
   element = mount(BASIC_SAMPLE)
   const root = shadowOf(element)
 
+  await openDetails(root)
   await selectTab(root, 1) // 'data'
   await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
   await clickRun(root)
