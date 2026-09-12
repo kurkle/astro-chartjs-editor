@@ -57,7 +57,8 @@
     "lint": "biome check",
     "pack:check": "npm pack --dry-run",
     "prepare": "git config core.hooksPath .githooks || true",
-    "test": "node --test"
+    "pretest": "node -e \"require('node:fs').mkdirSync('coverage',{recursive:true})\"",
+    "test": "node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=coverage/lcov.info --test-reporter=spec --test-reporter-destination=stdout"
   },
   "type": "module",
   "version": "0.0.0-development"
