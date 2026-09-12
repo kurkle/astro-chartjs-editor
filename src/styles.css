@@ -22,11 +22,29 @@
   margin-bottom: 0.5rem;
 }
 
+/*
+ * Chart.js's own recommended pattern for a responsive chart in a sized
+ * container: give the wrapper an explicit block-size and position it as
+ * the positioning context, then let the canvas fill it absolutely. Size
+ * flows one way only -- from this wrapper's --chartjs-editor-chart-height
+ * (set per-block from the fence's height= meta, client.js) down to the
+ * canvas -- rather than the canvas's own width/height attributes
+ * determining the wrapper's size through an aspect ratio, which is what
+ * made data-height not actually mean the rendered height (see the fix that
+ * added this comment).
+ */
+.chartjs-editor__canvas-wrapper {
+  position: relative;
+  inline-size: 100%;
+  block-size: var(--chartjs-editor-chart-height, 420px);
+}
+
 canvas {
   display: block;
+  position: absolute;
+  inset: 0;
   inline-size: 100%;
-  max-inline-size: 100%;
-  block-size: auto;
+  block-size: 100%;
   border-radius: 0.5rem;
   background: white;
 }
