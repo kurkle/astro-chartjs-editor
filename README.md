@@ -108,14 +108,15 @@ Only a fence with `js` or `javascript` as its language **and** the standalone wo
 
 ### Fence meta parameters
 
-The meta string after `chart-editor` is parsed for two named parameters (`name=value`, quoted or unquoted):
+The meta string after `chart-editor` is parsed for three named parameters (`name=value`, quoted or unquoted):
 
-| Parameter | Falls back to (in order)             | Default | Notes                                             |
-| --------- | ------------------------------------- | ------- | -------------------------------------------------- |
-| `height`  | frontmatter `chartHeight`              | `420`   | Sets the canvas height in pixels.                  |
-| `title`   | frontmatter `chartTitle`, then `title` | `''`    | Shown above the chart; hidden entirely when empty. |
+| Parameter | Falls back to (in order) | Default                                                        | Notes                                                                                          |
+| --------- | -------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `height`  | frontmatter `chartHeight`  | `420`                                                           | Sets the canvas height in pixels.                                                               |
+| `title`   | frontmatter `chartTitle`   | `''`                                                            | Shown above the chart; hidden entirely when empty. Does **not** fall back to the page's own frontmatter `title` — that would just repeat the page's own heading inside the demo. |
+| `code`    | —                           | see [The code panel](#the-code-panel) for the automatic default | Forces the code panel open (`code="open"`) or collapsed (`code="collapsed"`) regardless of the automatic rule. Any other value is ignored. |
 
-This is what the `height=500` in the example above sets — a 500px-tall canvas instead of the 420px default. Parsing of both is covered by `test/remark.test.js` (e.g. `height=600` and `height=500` fences, plus a default-height case).
+This is what the `height=500` in the example above sets — a 500px-tall canvas instead of the 420px default. Parsing of all three is covered by `test/remark.test.js` (e.g. `height=600` and `height=500` fences, a default-height case, and dedicated cases for `title=`/`chartTitle`/`code=`).
 
 No other parameters are read. Anything else present in the meta string is silently ignored — it is not an error, and it has no effect.
 
@@ -193,7 +194,7 @@ This logic lives in `src/charts.js` (`normalizeCharts`), covered by `test/charts
 
 ### Featured option: `choices`
 
-A sample almost always demonstrates one particular option. Rather than leaving a reader to find it inside a (collapsed, see below) code panel, a sample can declare it as a live control that renders between the chart(s) and the code:
+A sample almost always demonstrates one particular option. Rather than leaving a reader to find it inside the code panel below, a sample can declare it as a live control that renders between the chart(s) and the code. Declaring at least one choice is also what collapses that code panel by default (see [The code panel](#the-code-panel)) — the control already surfaces the setting worth calling out, so the full configuration stays tucked away unless the reader wants it:
 
 ```js
 module.exports = {
@@ -218,7 +219,7 @@ When `control` isn't set, it's derived from the declaration: 2–4 `values` → 
 
 The control's initial selection is read from the sample's own `config` (or the first entry's `config` when exporting `charts`) at `path`, not from `values[0]` — so the control and the code never disagree about the current state. A choice applies to **every** chart in the block: with `charts`, the same path/value is set on every entry's config. A control that should affect only one chart calls for two separate blocks instead.
 
-Each control shows a copy-pasteable readout (`options.nodePaddingMode: 'even'`) next to it — this is deliberate: the full code panel is collapsed by default (see below), so the readout is what teaches the syntax to a reader who never opens it.
+Each control shows a copy-pasteable readout (`options.nodePaddingMode: 'even'`) next to it — this is deliberate: the full code panel is collapsed by default whenever `choices` is declared (see below), so the readout is what teaches the syntax to a reader who never opens it.
 
 Applying a selection rebuilds the affected chart's configuration and re-creates the chart, rather than assigning into `chart.options` and calling `chart.update()`. That choice isn't about `update()` being unsafe — it's that rebuilding doesn't depend on the order options happen to resolve in, and it works the same way whether a choice targets `options` or `data`, so one code path covers every declared choice.
 
@@ -251,7 +252,23 @@ astro-chartjs-editor {
 
 ## The code panel
 
-The tabs, editor, **Run**/**Copy**/**Reset**/**View source** toolbar, error area and output panel all sit inside a `<details>` element, collapsed by default, with "Full configuration" as its summary. The chart(s) and any `choices` controls are always visible above it. The panel sizes to its content (up to a `max-block-size` of 360px, scrolling past that) instead of reserving a fixed height regardless of how much code a sample has.
+The tabs, editor, **Run**/**Copy**/**Reset**/**View source** toolbar, error area and output panel all sit inside a `<details>` element with "Full configuration" as its summary. The chart(s) and any `choices` controls are always visible above it. The panel sizes to its content (up to a `max-block-size` of 360px, scrolling past that) instead of reserving a fixed height regardless of how much code a sample has.
+
+**Open or collapsed by default** is decided automatically, from whether the sample declares `choices`:
+
+- **No `choices`** (or an empty list): the panel starts **open**. With no control standing in for it, the full configuration *is* the thing the sample demonstrates, so hiding it by default would bury the point of the page.
+- **One or more `choices`**: the panel starts **collapsed**. The control already surfaces the setting worth calling out, and its readout (see above) teaches the syntax without the panel needing to be open.
+
+This is decided once, right after the sample's first render — later edits or clicking **Run** never reopen or recollapse a panel the reader has already toggled themselves.
+
+A fence can override the automatic rule with a `code=` meta parameter:
+
+````md
+```js chart-editor code="open"
+```
+````
+
+`code="open"` always starts the panel open; `code="collapsed"` always starts it collapsed — either way regardless of whether the sample declares `choices`. Any other value for `code=` is ignored, falling back to the automatic rule above, the same as leaving `code=` unset entirely. It's parsed with the same `getMetaValue` helper as `title=`/`height=`, and passed through to the client as a `data-code` attribute (omitted from the markup entirely when the fence sets no `code=`).
 
 Typing already re-renders the chart(s) after a 500ms debounce, but **Ctrl+Enter** (or **Cmd+Enter** on macOS) runs the current code immediately from inside the editor, same as clicking **Run**.
 

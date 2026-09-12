@@ -16,6 +16,7 @@ import {
   ACTIONS_SAMPLE,
   BASIC_SAMPLE,
   BROKEN_CONFIG_CODE,
+  CHOICES_SAMPLE,
   EDITED_DATA_CODE,
   OUTPUT_SAMPLE,
 } from './samples.js'
@@ -92,8 +93,20 @@ describe('chart header', () => {
 })
 
 describe('code panel', () => {
-  it('is collapsed by default and opens on click', async () => {
+  // The automatic rule (client.js, right after the initial render() call):
+  // no `choices` means nothing else stands in for the full configuration,
+  // so it starts open; one or more `choices` means the control already
+  // surfaces the setting worth calling out, so it starts collapsed.
+  it('is open by default when the sample declares no choices', () => {
     element = mount(BASIC_SAMPLE)
+    const root = shadowOf(element)
+    const details = root.querySelector('.chartjs-editor__details')
+
+    expect(details.open).toBe(true)
+  })
+
+  it('is collapsed by default when the sample declares choices, and opens on click', async () => {
+    element = mount(CHOICES_SAMPLE)
     const root = shadowOf(element)
     const details = root.querySelector('.chartjs-editor__details')
 
@@ -106,6 +119,29 @@ describe('code panel', () => {
     await userEvent.click(root.querySelector('.chartjs-editor__summary'))
 
     expect(details.open).toBe(false)
+  })
+
+  it('code="collapsed" collapses the panel even when there are no choices', () => {
+    element = mount(BASIC_SAMPLE, { codePanel: 'collapsed' })
+    const root = shadowOf(element)
+
+    expect(root.querySelector('.chartjs-editor__details').open).toBe(false)
+  })
+
+  it('code="open" opens the panel even when the sample declares choices', () => {
+    element = mount(CHOICES_SAMPLE, { codePanel: 'open' })
+    const root = shadowOf(element)
+
+    expect(root.querySelector('.chartjs-editor__details').open).toBe(true)
+  })
+
+  it('ignores an unrecognized code= value and falls back to the automatic rule', () => {
+    element = mount(CHOICES_SAMPLE, { codePanel: 'sideways' })
+    const root = shadowOf(element)
+
+    // CHOICES_SAMPLE declares choices, so the automatic rule says collapsed
+    // -- same as if codePanel had been left unset entirely.
+    expect(root.querySelector('.chartjs-editor__details').open).toBe(false)
   })
 
   it('sizes to its content instead of a fixed 360px box', async () => {
