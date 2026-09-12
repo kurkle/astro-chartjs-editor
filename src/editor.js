@@ -10,10 +10,17 @@ const editorTheme = EditorView.theme({
   },
   '.cm-scroller': {
     fontFamily: 'var(--__sl-font-mono, ui-monospace, SFMono-Regular, Consolas, monospace)',
+    // The code panel now sizes to its content (see .chartjs-editor__code's
+    // max-block-size in styles.css) instead of forcing a fixed height, so
+    // this element -- not '&' below -- is the one that needs to scroll once
+    // a section's content actually exceeds that cap. It lives inside its
+    // own nested shadow root (see SampleEditor's constructor), which
+    // styles.css can't reach, so the cap has to be set here too.
+    maxHeight: '360px',
+    overflow: 'auto',
   },
   '&': {
     fontSize: '13px',
-    height: '100%',
   },
 })
 

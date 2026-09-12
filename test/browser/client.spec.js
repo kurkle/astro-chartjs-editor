@@ -6,6 +6,7 @@ import {
   clickRun,
   cmContentOf,
   getTabs,
+  openDetails,
   replaceCurrentSectionCode,
   selectTab,
 } from './interactions.js'
@@ -49,6 +50,33 @@ describe('mounting', () => {
   })
 })
 
+describe('code panel', () => {
+  it('is collapsed by default and opens on click', async () => {
+    element = mount(BASIC_SAMPLE)
+    const root = shadowOf(element)
+    const details = root.querySelector('.chartjs-editor__details')
+
+    expect(details.open).toBe(false)
+
+    await openDetails(root)
+
+    expect(details.open).toBe(true)
+  })
+
+  it('sizes to its content instead of a fixed 360px box', async () => {
+    element = mount(BASIC_SAMPLE)
+    const root = shadowOf(element)
+
+    await openDetails(root)
+
+    // BASIC_SAMPLE's 'config' tab is four short lines; a box that still
+    // sizes itself to the old fixed height would measure close to 360px.
+    const { height } = root.querySelector('.chartjs-editor__code').getBoundingClientRect()
+    expect(height).toBeGreaterThan(0)
+    expect(height).toBeLessThan(200)
+  })
+})
+
 describe('tabs', () => {
   it('creates tabs from block markers in declared order with the first selected', () => {
     element = mount(BASIC_SAMPLE)
@@ -64,6 +92,7 @@ describe('tabs', () => {
     element = mount(BASIC_SAMPLE)
     const root = shadowOf(element)
 
+    await openDetails(root)
     await selectTab(root, 1)
 
     const tabs = getTabs(root)
@@ -78,6 +107,7 @@ describe('editing', () => {
     element = mount(BASIC_SAMPLE)
     const root = shadowOf(element)
 
+    await openDetails(root)
     await selectTab(root, 1) // 'data'
     await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
     await clickRun(root)
@@ -106,6 +136,7 @@ describe('editing', () => {
       element = mount(BASIC_SAMPLE)
       const root = shadowOf(element)
 
+      await openDetails(root)
       await clickCopy(root)
 
       await expect.poll(() => root.querySelector('[data-chart-copy]').textContent).toBe('Copied')
@@ -125,6 +156,7 @@ describe('error handling', () => {
     element = mount(BASIC_SAMPLE)
     const root = shadowOf(element)
 
+    await openDetails(root)
     await selectTab(root, 0) // 'config'
     await replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
     await clickRun(root)
@@ -147,6 +179,7 @@ describe('error handling', () => {
     element = mount(BASIC_SAMPLE)
     const root = shadowOf(element)
 
+    await openDetails(root)
     await selectTab(root, 0) // 'config'
     await replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
     await clickRun(root)

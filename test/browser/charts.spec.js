@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import '../../src/client.js'
-import { clickRun } from './interactions.js'
+import { clickRun, openDetails } from './interactions.js'
 import {
   CHARTS_MISSING_CONFIG_SAMPLE,
   CONFIG_AND_CHARTS_SAMPLE,
@@ -40,6 +40,7 @@ describe('multiple charts', () => {
     const root = shadowOf(element)
     const before = Array.from(root.querySelectorAll('canvas'))
 
+    await openDetails(root)
     await clickRun(root)
 
     const after = Array.from(root.querySelectorAll('canvas'))

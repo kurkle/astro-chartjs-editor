@@ -9,6 +9,18 @@ export function getTabs(root) {
   return Array.from(root.querySelectorAll('.chartjs-editor__tab'))
 }
 
+/**
+ * The tabs, editor, toolbar, error area and output all live inside a
+ * `<details>` that's closed by default (see client.js), so anything that
+ * clicks one of them -- through Playwright's real input, not synthetic DOM
+ * dispatch -- needs the panel open first, or the click lands on a
+ * non-visible element and fails.
+ */
+export async function openDetails(root) {
+  const details = root.querySelector('.chartjs-editor__details')
+  if (!details.open) await userEvent.click(root.querySelector('.chartjs-editor__summary'))
+}
+
 export async function selectTab(root, index) {
   const tabs = getTabs(root)
   await userEvent.click(tabs[index])
