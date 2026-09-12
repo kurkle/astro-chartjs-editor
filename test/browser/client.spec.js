@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import '../../src/client.js'
 import {
   clickCopy,
@@ -61,6 +62,10 @@ describe('code panel', () => {
     await openDetails(root)
 
     expect(details.open).toBe(true)
+
+    await userEvent.click(root.querySelector('.chartjs-editor__summary'))
+
+    expect(details.open).toBe(false)
   })
 
   it('sizes to its content instead of a fixed 360px box', async () => {
@@ -172,6 +177,17 @@ describe('error handling', () => {
     expect(errorNode.textContent).toContain('brokenHelperThatDoesNotExist is not defined')
     expect(errorNode.querySelector('.chartjs-editor__error-message').textContent).toBe(
       'brokenHelperThatDoesNotExist is not defined'
+    )
+  })
+
+  it('shows a thrown non-Error value too, not only real Error instances', () => {
+    // A sample can `throw` any value, not necessarily an Error -- renderError()
+    // has a separate branch (String(error), no message/stack split) for that.
+    element = mount("throw 'a plain string, not an Error'")
+    const root = shadowOf(element)
+
+    expect(root.querySelector('.chartjs-editor__error').textContent).toBe(
+      'a plain string, not an Error'
     )
   })
 

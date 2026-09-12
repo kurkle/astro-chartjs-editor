@@ -133,3 +133,92 @@ export const CONFIG_AND_CHARTS_SAMPLE = `const config = { type: 'bar', data: { l
 module.exports = { config, charts: [{ config }] }`
 
 export const CHARTS_MISSING_CONFIG_SAMPLE = `module.exports = { charts: [{ title: 'No config here' }] }`
+
+// One radio choice (2 values, targeting `options`) and one range choice
+// (targeting `data`), so rebuildCharts() is exercised on both branches of
+// the config a choice can reach into.
+export const CHOICES_SAMPLE = `const config = {
+  type: 'bar',
+  data: {
+    labels: ['A', 'B', 'C'],
+    datasets: [{ borderWidth: 1, data: [3, 6, 9], label: 'Values' }],
+  },
+  options: {
+    animation: false,
+    indexAxis: 'x',
+    plugins: { legend: false },
+    scales: { x: { display: false }, y: { display: false } },
+  },
+}
+
+module.exports = {
+  config,
+  choices: [
+    { path: 'options.indexAxis', values: ['x', 'y'] },
+    { max: 10, min: 0, path: 'data.datasets.0.borderWidth', step: 1 },
+  ],
+}`
+
+// Same base config, with a select (5+ values) and a checkbox (values:
+// [true, false]) choice, to exercise the two control kinds CHOICES_SAMPLE
+// doesn't cover.
+export const CHOICES_SELECT_CHECKBOX_SAMPLE = `const config = {
+  type: 'bar',
+  data: {
+    labels: ['A', 'B', 'C'],
+    datasets: [{ data: [3, 6, 9], label: 'Values' }],
+  },
+  options: {
+    animation: false,
+    plugins: { legend: false },
+    scales: { x: { display: false }, y: { display: false } },
+  },
+}
+
+module.exports = {
+  config,
+  choices: [
+    { path: 'options.custom.mode', values: ['a', 'b', 'c', 'd', 'e'] },
+    { path: 'options.custom.enabled', values: [true, false] },
+  ],
+}`
+
+// A choices declaration missing both `values` and `min`/`max` -- invalid
+// per the contract, and thrown from normalizeChoices() before any chart is
+// ever created.
+export const CHOICES_INVALID_SAMPLE = `const config = { type: 'bar', data: { labels: [], datasets: [] } }
+module.exports = { choices: [{ path: 'options.x' }], config }`
+
+// A valid declaration whose second option makes Chart.js itself throw once
+// applied (an unregistered controller type), to exercise the failure path
+// inside a choice's own click handler -- as opposed to CHOICES_INVALID_SAMPLE,
+// which fails during the sample's initial evaluation.
+export const CHOICES_BREAKS_ON_APPLY_SAMPLE = `const config = {
+  type: 'bar',
+  data: { labels: ['A'], datasets: [{ data: [1] }] },
+  options: { animation: false, plugins: { legend: false } },
+}
+module.exports = { choices: [{ path: 'type', values: ['bar', 'not-a-real-chart-type'] }], config }`
+
+// A `charts` block (two variants sharing one `data`/`options` object) paired
+// with a choice, to prove the choice's rebuild reaches every entry in the
+// block rather than only the first.
+export const CHOICES_WITH_CHARTS_SAMPLE = `const base = {
+  labels: ['A', 'B', 'C'],
+  datasets: [{ borderWidth: 1, data: [3, 6, 9], label: 'Values' }],
+}
+const commonOptions = {
+  animation: false,
+  plugins: { legend: false },
+  scales: { x: { display: false }, y: { display: false } },
+}
+const configA = { type: 'bar', data: base, options: commonOptions }
+const configB = { type: 'line', data: base, options: commonOptions }
+
+module.exports = {
+  charts: [
+    { config: configA, title: 'Bars' },
+    { config: configB, title: 'Line' },
+  ],
+  choices: [{ max: 10, min: 0, path: 'data.datasets.0.borderWidth', step: 1 }],
+}`

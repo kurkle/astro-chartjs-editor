@@ -29,6 +29,7 @@
   "exports": {
     ".": "./src/integration.js",
     "./charts": "./src/charts.js",
+    "./choices": "./src/choices.js",
     "./client": "./src/client.js",
     "./remark": "./src/remark.js",
     "./sections": "./src/sections.js"

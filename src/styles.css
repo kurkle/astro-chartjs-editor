@@ -48,6 +48,76 @@ canvas {
   font: inherit;
 }
 
+.chartjs-editor__choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chartjs-editor-control-gap, 0.85rem);
+  margin-top: 1rem;
+}
+
+.chartjs-editor__choices[hidden] {
+  display: none;
+}
+
+.chartjs-editor__choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem var(--chartjs-editor-control-gap, 0.6rem);
+}
+
+.chartjs-editor__choice-label,
+.chartjs-editor__choice label {
+  font: 600 13px/1.2 var(--__sl-font, system-ui, sans-serif);
+  color: var(--sl-color-text, #222);
+}
+
+.chartjs-editor__segmented {
+  display: inline-flex;
+  border: 1px solid var(--sl-color-gray-4, #626772);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.chartjs-editor__segment {
+  border: 0;
+  padding: 0.3rem 0.75rem;
+  background: var(--sl-color-bg-nav, #f5f5f5);
+  color: var(--sl-color-text, #222);
+  cursor: pointer;
+  font: inherit;
+}
+
+.chartjs-editor__segment + .chartjs-editor__segment {
+  border-left: 1px solid var(--sl-color-gray-4, #626772);
+}
+
+.chartjs-editor__segment.active {
+  background: var(--chartjs-editor-control-accent, #4133b0);
+  color: #fff;
+}
+
+.chartjs-editor__segment:focus-visible,
+.chartjs-editor__choice select:focus-visible,
+.chartjs-editor__choice input:focus-visible {
+  outline: 2px solid var(--chartjs-editor-control-accent, #4133b0);
+  outline-offset: 2px;
+}
+
+.chartjs-editor__choice select,
+.chartjs-editor__choice input[type='range'] {
+  accent-color: var(--chartjs-editor-control-accent, #4133b0);
+}
+
+.chartjs-editor__readout {
+  display: block;
+  flex-basis: 100%;
+  color: var(--sl-color-gray-2, #626772);
+  font-family: var(--__sl-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  user-select: all;
+}
+
 .chartjs-editor__details {
   margin-top: 1rem;
 }
