@@ -98,7 +98,7 @@ it('matches the edited chart reference image, proving an edit redraws the chart'
 
   await openDetails(root)
   await selectTab(root, 1) // 'data'
-  await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
+  replaceCurrentSectionCode(root, EDITED_DATA_CODE)
   await clickRun(root)
 
   const canvas = root.querySelector('canvas')

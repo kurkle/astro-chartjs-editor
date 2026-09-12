@@ -11,6 +11,7 @@ import {
   pressRunShortcut,
   replaceCurrentSectionCode,
   selectTab,
+  typeCurrentSectionCode,
 } from './interactions.js'
 import {
   ACTIONS_SAMPLE,
@@ -190,7 +191,7 @@ describe('editing', () => {
 
     await openDetails(root)
     await selectTab(root, 1) // 'data'
-    await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
+    replaceCurrentSectionCode(root, EDITED_DATA_CODE)
     await clickRun(root)
 
     expect(cmContentOf(root).textContent).toContain('9, 3, 6')
@@ -203,6 +204,36 @@ describe('editing', () => {
     const dataText = cmContentOf(root).textContent
     expect(dataText).toContain('3, 6, 9')
     expect(dataText).not.toContain('9, 3, 6')
+  })
+
+  // The one test in this suite that types character by character through a
+  // real CodeMirror input (typeCurrentSectionCode(), see interactions.js)
+  // instead of replaceCurrentSectionCode()'s deterministic transaction
+  // dispatch. Every other test just needs particular code sitting in the
+  // editor and doesn't care how it got there, so it uses the dispatch.
+  // This one specifically has to prove that typing itself -- not a click,
+  // not a dispatched change -- reaches CodeMirror's own input handling and
+  // re-renders the chart once the 500ms debounce elapses, with no Run
+  // click at all; a transaction dispatch wouldn't exercise that keyboard
+  // path or the debounce timer next to it.
+  it('re-renders the chart from real typing alone, once the debounce elapses, with no Run click', async () => {
+    element = mount(BASIC_SAMPLE)
+    const root = shadowOf(element)
+    const canvasBefore = root.querySelector('canvas')
+
+    await openDetails(root)
+    await selectTab(root, 1) // 'data'
+    await typeCurrentSectionCode(root, EDITED_DATA_CODE)
+
+    // The 500ms debounce only starts counting down from the *last*
+    // keystroke (see editor.js's updateListener: every change clears and
+    // reschedules it), and typing EDITED_DATA_CODE character by character
+    // itself takes a variable, load-dependent amount of time first -- so
+    // this budget has to cover both, generously, rather than pin the
+    // debounce's own 500ms as if typing were instant.
+    await expect.poll(() => root.querySelector('canvas'), { timeout: 5000 }).not.toBe(canvasBefore)
+    await expect.poll(() => hasInk(root.querySelector('canvas'))).toBe(true)
+    expect(cmContentOf(root).textContent).toContain('9, 3, 6')
   })
 
   it('writes the composed code to the clipboard, falling back to execCommand when the Clipboard API is unavailable', async () => {
@@ -247,7 +278,7 @@ describe('run shortcut', () => {
   // Cmd+Enter worked in both). So which single key counts as "Mod" is a
   // platform fact, not something a test can hardcode across CI (Linux) and
   // a Mac without becoming exactly the kind of environment-dependent
-  // flakiness replaceCurrentSectionCode's docs above already describe.
+  // flakiness this suite otherwise avoids.
   const isMac = /Mac/.test(navigator.platform)
 
   async function editAndPress(modifiers) {
@@ -257,7 +288,7 @@ describe('run shortcut', () => {
 
     await openDetails(root)
     await selectTab(root, 1) // 'data'
-    await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
+    replaceCurrentSectionCode(root, EDITED_DATA_CODE)
     pressRunShortcut(root, modifiers)
 
     await expect.poll(() => root.querySelector('canvas'), IMMEDIATE).not.toBe(canvasBefore)
@@ -282,7 +313,7 @@ describe('run shortcut', () => {
 
     await openDetails(root)
     await selectTab(root, 1) // 'data'
-    await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
+    replaceCurrentSectionCode(root, EDITED_DATA_CODE)
     pressRunShortcut(root, isMac ? { ctrlKey: true } : { metaKey: true })
 
     await new Promise((resolve) => setTimeout(resolve, IMMEDIATE.timeout))
@@ -297,7 +328,7 @@ describe('error handling', () => {
 
     await openDetails(root)
     await selectTab(root, 0) // 'config'
-    await replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
+    replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
     await clickRun(root)
 
     // client.js used to show `error.stack ?? error.message`. V8 puts the
@@ -331,7 +362,7 @@ describe('error handling', () => {
 
     await openDetails(root)
     await selectTab(root, 0) // 'config'
-    await replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
+    replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
     await clickRun(root)
 
     expect(root.querySelector('.chartjs-editor__error').textContent).not.toBe('')
@@ -341,7 +372,7 @@ describe('error handling', () => {
 
     // Recovering with valid code clears the error and still leaves exactly
     // one canvas -- no ghost from the errored attempt.
-    await replaceCurrentSectionCode(
+    replaceCurrentSectionCode(
       root,
       "const config = { type: 'bar', data: { labels: [], datasets: [] }, options: { animation: false } }"
     )
