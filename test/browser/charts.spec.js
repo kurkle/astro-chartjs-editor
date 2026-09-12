@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { page, server } from 'vitest/browser'
+import { page } from 'vitest/browser'
 import '../../src/client.js'
 import { clickRun } from './interactions.js'
 import {
@@ -88,22 +88,8 @@ describe('multiple charts', () => {
   })
 })
 
-/**
- * client.js prefers `error.stack` for the error panel. V8 (Chromium) prepends
- * "<Name>: <message>" to the frame list, so the thrown message text is
- * checkable there; Firefox's `.stack` is call frames only, with no name or
- * message line at all, so the same assertion would never pass in Firefox
- * regardless of whether the right error fired. Assert the specific message on
- * Chromium and fall back to "some error was shown" elsewhere, rather than
- * weakening the check for both.
- */
 function expectErrorText(root, substring) {
-  const text = root.querySelector('.chartjs-editor__error').textContent
-  if (server.browser === 'chromium') {
-    expect(text).toContain(substring)
-  } else {
-    expect(text).not.toBe('')
-  }
+  expect(root.querySelector('.chartjs-editor__error').textContent).toContain(substring)
 }
 
 describe('charts contract errors', () => {
