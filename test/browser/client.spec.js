@@ -8,6 +8,7 @@ import {
   cmContentOf,
   getTabs,
   openDetails,
+  pressRunShortcut,
   replaceCurrentSectionCode,
   selectTab,
 } from './interactions.js'
@@ -153,6 +154,64 @@ describe('editing', () => {
         value: originalClipboard,
       })
     }
+  })
+})
+
+describe('run shortcut', () => {
+  // Typing already re-renders after a 500ms debounce (see editor.js), so
+  // the only thing distinguishing "the shortcut ran it" from "the debounce
+  // would have fired anyway" is speed: poll well under 500ms, so this only
+  // passes if Mod-Enter applied the edit immediately.
+  const IMMEDIATE = { timeout: 150 }
+
+  // CodeMirror resolves its 'Mod-' bindings from `navigator.platform` (see
+  // editorTheme's comment in editor.js), the same host property for every
+  // browser instance running on it -- confirmed here by both Chromium and
+  // Firefox agreeing with *each other* and disagreeing with the "wrong"
+  // modifier on a Mac dev machine (Ctrl+Enter did nothing in either engine;
+  // Cmd+Enter worked in both). So which single key counts as "Mod" is a
+  // platform fact, not something a test can hardcode across CI (Linux) and
+  // a Mac without becoming exactly the kind of environment-dependent
+  // flakiness replaceCurrentSectionCode's docs above already describe.
+  const isMac = /Mac/.test(navigator.platform)
+
+  async function editAndPress(modifiers) {
+    element = mount(BASIC_SAMPLE)
+    const root = shadowOf(element)
+    const canvasBefore = root.querySelector('canvas')
+
+    await openDetails(root)
+    await selectTab(root, 1) // 'data'
+    await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
+    pressRunShortcut(root, modifiers)
+
+    await expect.poll(() => root.querySelector('canvas'), IMMEDIATE).not.toBe(canvasBefore)
+    await expect.poll(() => hasInk(root.querySelector('canvas'))).toBe(true)
+  }
+
+  it("runs the current code immediately on this platform's Mod+Enter (Ctrl on Windows/Linux, Cmd on Mac)", async () => {
+    await editAndPress(isMac ? { metaKey: true } : { ctrlKey: true })
+  })
+
+  it('does not run on the other modifier alone', async () => {
+    // CodeMirror's key matching builds one exact modifier-prefixed name per
+    // event (Alt-/Ctrl-/Meta-/Shift-, in that order) and compares it against
+    // the binding's own normalized name -- there's no "any of these
+    // modifiers" match. Holding both Ctrl and Meta together, tried first,
+    // builds "Ctrl-Meta-Enter", which matches neither "Ctrl-Enter" nor
+    // "Meta-Enter" and so doesn't run either -- confirmed by this failing
+    // the same way pressing only the wrong single modifier does below.
+    element = mount(BASIC_SAMPLE)
+    const root = shadowOf(element)
+    const canvasBefore = root.querySelector('canvas')
+
+    await openDetails(root)
+    await selectTab(root, 1) // 'data'
+    await replaceCurrentSectionCode(root, EDITED_DATA_CODE)
+    pressRunShortcut(root, isMac ? { ctrlKey: true } : { metaKey: true })
+
+    await new Promise((resolve) => setTimeout(resolve, IMMEDIATE.timeout))
+    expect(root.querySelector('canvas')).toBe(canvasBefore)
   })
 })
 
