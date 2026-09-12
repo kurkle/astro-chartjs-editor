@@ -390,18 +390,68 @@ class ChartEditorElement extends HTMLElement {
     let currentIsMulti = false
 
     // Applies every choice's current selection to a fresh clone of each
-    // entry's config, then recreates every chart from the rebuilt configs
-    // (never chart.options + update()). This is what applyChoices() +
-    // renderCharts() give for free: the result doesn't depend on the order
-    // options happen to resolve in, and holds the same way whether a choice
-    // targets `options` or `data`.
-    const rebuildCharts = () => {
-      const built = baseEntries.map((entry) => ({
+    // entry's config. applyChoices() always hands back a new top-level
+    // object -- never a poke into the live one -- so the result never
+    // depends on the order options happen to resolve in, and works the same
+    // way whether a choice targets `options` or `data`. Shared by the
+    // from-scratch render below and by rebuildCharts()'s in-place update.
+    const buildEntries = () =>
+      baseEntries.map((entry) => ({
         ...entry,
         config: applyChoices(entry.config, choiceDescriptors, selections),
       }))
-      charts = renderCharts(chartsGrid, charts, built, height, title)
+
+    // The only place that creates Chart instances: the initial render of a
+    // sample's charts, and re-running its code (Run/Reset). Either of those
+    // can change the chart count, a chart's type, or anything else about the
+    // configuration in ways a live instance can't absorb, so this always
+    // destroys whatever charts exist and builds fresh ones.
+    const renderAllCharts = () => {
+      charts = renderCharts(chartsGrid, charts, buildEntries(), height, title)
       renderActions(actionsNode, currentActions, charts, currentIsMulti)
+    }
+
+    // Applies a choice selection to the charts already on screen by
+    // mutating each live instance instead of recreating it: `chart.data =
+    // ...`, `chart.options = ...` (both supported Chart.js setters that
+    // write straight through to `chart.config`), then `chart.update()`.
+    // `update()` runs `config.update()`, which clears Chart.js's per-instance
+    // option caches (`_scopeCache`, `_resolverCache`) before anything is
+    // resolved again -- so handing it a freshly built config (see
+    // buildEntries() above) is safe: there is nothing stale from the
+    // previous selection left to resolve.
+    //
+    // A chart's `type` is the one thing that can't be changed this way --
+    // Chart.js has no supported path for turning a live instance into a
+    // different controller/element/scale trio -- so a choice that would
+    // change it throws instead of silently doing nothing or quietly
+    // recreating the chart. Every entry is checked before any of them is
+    // mutated, so a rejected selection never leaves some charts updated and
+    // others not.
+    const rebuildCharts = () => {
+      const built = buildEntries()
+
+      for (const [index, entry] of built.entries()) {
+        const chart = charts[index]
+        if (chart.config.type !== entry.config.type) {
+          throw new TypeError(
+            `Sample \`choices\` path 'type' would change this chart's type from '${chart.config.type}' to '${entry.config.type}'; changing a chart's type through \`choices\` isn't supported.`
+          )
+        }
+      }
+
+      for (const [index, entry] of built.entries()) {
+        const chart = charts[index]
+        chart.data = entry.config.data
+        chart.options = entry.config.options
+        chart.update()
+      }
+
+      // No renderActions() call here, deliberately: `charts` keeps the same
+      // array holding the same instances (nothing above reassigns it), and
+      // each action button's click handler closes over that outer `charts`
+      // variable rather than a snapshot of it -- so it already reaches the
+      // right, still-live objects without being rebound.
     }
 
     const applySelectionChange = () => {
@@ -462,7 +512,7 @@ class ChartEditorElement extends HTMLElement {
         }
 
         renderChoices()
-        rebuildCharts()
+        renderAllCharts()
         outputNode.hidden = !output
         refreshOutput(typeof output === 'string' ? output : undefined)
       } catch (error) {

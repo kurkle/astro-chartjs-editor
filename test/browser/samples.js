@@ -200,6 +200,32 @@ export const CHOICES_BREAKS_ON_APPLY_SAMPLE = `const config = {
 }
 module.exports = { choices: [{ path: 'type', values: ['bar', 'not-a-real-chart-type'] }], config }`
 
+// Animation left on (200ms, linear easing) specifically to prove a choice
+// selection no longer restarts it -- the test reads the live chart's own
+// geometry across frames (via Chart.getChart() and getDatasetMeta()), so
+// this sample needs nothing beyond an ordinary animated config. Every other
+// sample above disables animation for pixel-fixture determinism; this is
+// the one place that needs it on.
+export const CHOICES_ANIMATED_SAMPLE = `const config = {
+  type: 'bar',
+  data: { labels: ['A'], datasets: [{ data: [10], label: 'Value' }] },
+  options: {
+    animation: { duration: 200, easing: 'linear' },
+    plugins: { legend: false },
+    // A fixed y-axis range, not auto-scaled: with a single data point, an
+    // auto-scaled axis rescales its max to match every new value, so the
+    // bar would render at nearly the same height regardless of the value
+    // behind it. Pinning min/max is what makes the rendered height actually
+    // move when the choice below changes the value.
+    scales: { x: { display: false }, y: { display: false, min: 0, max: 100 } },
+  },
+}
+
+module.exports = {
+  config,
+  choices: [{ max: 100, min: 0, path: 'data.datasets.0.data.0', step: 1 }],
+}`
+
 // A `charts` block (two variants sharing one `data`/`options` object) paired
 // with a choice, to prove the choice's rebuild reaches every entry in the
 // block rather than only the first.
