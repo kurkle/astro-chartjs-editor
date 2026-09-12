@@ -137,7 +137,9 @@ Chart.js's own samples use a block-marker comment syntax to split one JavaScript
 
 ## `module.exports` contract
 
-The evaluated sample must set `module.exports` to an object. Three fields are read:
+The evaluated sample must set `module.exports` to an object. It must export **exactly one** of `config` or `charts` — plus, optionally, `actions` and `output`.
+
+### Single chart: `config`
 
 ```js
 module.exports = {
@@ -152,9 +154,42 @@ module.exports = {
 }
 ```
 
-- **`config`** is required in practice (it's what gets passed to `createChart`); there's no explicit validation if it's missing, so an undefined `config` is passed straight through to the runtime's `createChart`.
-- **`actions`** is a list of `{ name, handler }` pairs. Each renders as a button above the chart; clicking it calls `handler(chart)` with the live chart instance. This is already implemented in `src/client.js` — it simply wasn't documented until now.
-- **`output`** controls an "Output" panel below the chart that mirrors `console.log(...)` calls made by the sample (up to the last 50 messages, newline-joined) in addition to the real console. `false` (default) hides the panel entirely. `true` shows it, starting with a `...` placeholder until the first log call. A string shows it starting with that string as the placeholder instead of `...`. This is also already implemented and, like `actions`, simply wasn't documented until now.
+This is the original, single-canvas shape and its behavior is unchanged.
+
+- **`config`** is passed straight through to the runtime's `createChart`.
+- **`actions`** is a list of `{ name, handler }` pairs. Each renders as a button above the chart(s); clicking it calls `handler(chart)` with the live chart instance.
+- **`output`** controls an "Output" panel below the chart(s) that mirrors `console.log(...)` calls made by the sample (up to the last 50 messages, newline-joined) in addition to the real console. `false` (default) hides the panel entirely. `true` shows it, starting with a `...` placeholder until the first log call. A string shows it starting with that string as the placeholder instead of `...`.
+
+### Multiple charts: `charts`
+
+To render more than one chart from a single editor block — for example, the same base config with one option toggled, so the reader sees both variants side by side instead of two separate, fully-duplicated blocks — export `charts` instead of `config`:
+
+```js
+module.exports = {
+  charts: [
+    { title: 'Without nodeMinSize', config: configA },
+    { title: 'With nodeMinSize', config: configB },
+  ],
+}
+```
+
+- `charts` is an array; each entry requires `config` and may optionally set `title`. `title` renders as a small heading above that entry's canvas (this is separate from the fence's own `title=` meta parameter, which still labels the whole block).
+- One editor, one **Run**/**Copy**/**Reset** toolbar, and one error area are shared by all entries. Every canvas in the block is destroyed and recreated on each render (typing after the debounce, **Run**, or **Reset**).
+- **`actions`** and **`output`** work the same as above, except an action's `handler` receives the **array of chart instances** (in entry order) instead of a single chart, since there's more than one to act on.
+- The chart grid lays out with CSS grid (`repeat(auto-fit, minmax(320px, 1fr))`), so entries sit side by side on wide viewports and stack on narrow ones (including Starlight's ~600px content column).
+
+### Validation
+
+Exporting both `config` and `charts`, or neither, throws immediately when the sample is evaluated (shown in the block's error area, same as any other sample error) rather than silently picking one:
+
+| Situation                              | Error                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| Both `config` and `charts` exported     | `Sample exports both \`config\` and \`charts\`. Export only one: ...` |
+| Neither `config` nor `charts` exported  | `Sample must export either \`config\` ... or \`charts\` ...`          |
+| `charts` is not an array                | `Sample \`charts\` must be an array of \`{ config, title }\` entries.` |
+| A `charts` entry is missing `config`    | `Sample \`charts[<index>]\` is missing \`config\`.` (names the index)  |
+
+This logic lives in `src/charts.js` (`normalizeCharts`), covered by `test/charts.test.js`.
 
 ## Error behavior
 
@@ -169,6 +204,7 @@ module.exports = {
 | Subpath                          | Module              |
 | --------------------------------- | -------------------- |
 | `@kurkle/astro-chartjs-editor`     | `src/integration.js` (the default export, `chartEditor(options)`) |
+| `@kurkle/astro-chartjs-editor/charts` | `src/charts.js` (`normalizeCharts`, used internally to validate and flatten the `config`/`charts` contract) |
 | `@kurkle/astro-chartjs-editor/client` | `src/client.js` (the page script injected automatically; you shouldn't need to import it yourself) |
 | `@kurkle/astro-chartjs-editor/remark` | `src/remark.js` (`remarkChartEditor`, `satteriChartEditor`) |
 | `@kurkle/astro-chartjs-editor/sections` | `src/sections.js` (`parseSections`, used internally to split block-marker code into tabs) |
