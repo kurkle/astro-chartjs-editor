@@ -121,6 +121,28 @@ describe('editing', () => {
 })
 
 describe('error handling', () => {
+  it('shows the error message on its own line, in both browsers', async () => {
+    element = mount(BASIC_SAMPLE)
+    const root = shadowOf(element)
+
+    await selectTab(root, 0) // 'config'
+    await replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
+    await clickRun(root)
+
+    // client.js used to show `error.stack ?? error.message`. V8 puts the
+    // error's name and message at the top of `.stack`; Firefox's `.stack`
+    // is call frames only, with no message line at all -- so this exact
+    // assertion used to pass on Chromium and fail on Firefox. Rendering
+    // `error.message` explicitly (see renderError() in client.js) fixes
+    // that: this suite runs both engines, so a regression here fails in CI
+    // regardless of which browser catches it first.
+    const errorNode = root.querySelector('.chartjs-editor__error')
+    expect(errorNode.textContent).toContain('brokenHelperThatDoesNotExist is not defined')
+    expect(errorNode.querySelector('.chartjs-editor__error-message').textContent).toBe(
+      'brokenHelperThatDoesNotExist is not defined'
+    )
+  })
+
   it('shows the error and keeps the element intact without leaving a duplicate chart behind', async () => {
     element = mount(BASIC_SAMPLE)
     const root = shadowOf(element)
@@ -129,11 +151,6 @@ describe('error handling', () => {
     await replaceCurrentSectionCode(root, BROKEN_CONFIG_CODE)
     await clickRun(root)
 
-    // Not asserting the exact message text: `error.stack` (what client.js
-    // prefers) has no standardized content across engines. V8 (Chromium)
-    // prepends "<Name>: <message>" to the frame list; Firefox's `.stack` is
-    // call frames only, with no name or message line at all. So the only
-    // thing guaranteed to be true in both is that *something* is shown.
     expect(root.querySelector('.chartjs-editor__error').textContent).not.toBe('')
     // The previous chart is left as-is on an error (documented behavior),
     // but it must never be duplicated.

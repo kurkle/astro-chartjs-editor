@@ -38,6 +38,38 @@ function formatMessage(values) {
     .join(' ')
 }
 
+/**
+ * Renders an error into `errorNode`: the message on its own line first,
+ * then the stack (when there is one) behind a `<details>` disclosure.
+ *
+ * `client.js` used to show `error.stack ?? error.message` alone. V8 puts
+ * the error's name and message at the top of `.stack`, but Firefox's
+ * `.stack` is call frames only -- no name, no message -- so the panel
+ * showed a bare call stack with no indication of what actually went wrong.
+ * Showing `error.message` explicitly fixes that in both engines.
+ */
+function renderError(errorNode, error) {
+  errorNode.replaceChildren()
+  if (!(error instanceof Error)) {
+    errorNode.textContent = String(error)
+    return
+  }
+  const messageNode = document.createElement('div')
+  messageNode.className = 'chartjs-editor__error-message'
+  messageNode.textContent = error.message
+  errorNode.append(messageNode)
+  if (error.stack) {
+    const details = document.createElement('details')
+    details.className = 'chartjs-editor__error-stack'
+    const summary = document.createElement('summary')
+    summary.textContent = 'Stack trace'
+    const stackNode = document.createElement('pre')
+    stackNode.textContent = error.stack
+    details.append(summary, stackNode)
+    errorNode.append(details)
+  }
+}
+
 async function copyText(value) {
   try {
     await navigator.clipboard.writeText(value)
@@ -173,7 +205,7 @@ class ChartEditorElement extends HTMLElement {
     let editor
 
     const render = (code) => {
-      errorNode.textContent = ''
+      errorNode.replaceChildren()
       const messages = []
       const refreshOutput = (placeholder) => {
         outputContentNode.textContent = messages.join('\n') || placeholder || '...'
@@ -199,8 +231,7 @@ class ChartEditorElement extends HTMLElement {
         outputNode.hidden = !output
         refreshOutput(typeof output === 'string' ? output : undefined)
       } catch (error) {
-        errorNode.textContent =
-          error instanceof Error ? (error.stack ?? error.message) : String(error)
+        renderError(errorNode, error)
       }
     }
 
