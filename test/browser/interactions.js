@@ -150,6 +150,30 @@ export async function clickRun(root) {
   await userEvent.click(root.querySelector('[data-chart-run]'))
 }
 
+/**
+ * Presses the Cmd/Ctrl+Enter run shortcut (see editor.js's Mod-Enter
+ * keymap binding) with an explicit `ctrlKey`/`metaKey` flag rather than
+ * going through `userEvent.keyboard`'s modifier-key syntax. CodeMirror
+ * resolves its 'Mod-' bindings from the event's own ctrlKey/metaKey flags,
+ * not from which physical key was struck, so dispatching a real
+ * KeyboardEvent with the flag set directly is a faithful, engine-agnostic
+ * way to fire it -- and, per replaceCurrentSectionCode's notes above,
+ * Playwright's own OS-level resolution of *which* physical key a test
+ * should press for 'the' modifier key is exactly the kind of
+ * platform-dependent behavior this suite has already hit flakiness from.
+ */
+export function pressRunShortcut(root, { ctrlKey = false, metaKey = false } = {}) {
+  cmContentOf(root).dispatchEvent(
+    new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey,
+      key: 'Enter',
+      metaKey,
+    })
+  )
+}
+
 export async function clickReset(root) {
   await userEvent.click(root.querySelector('[data-chart-reset]'))
 }

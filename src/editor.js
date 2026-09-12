@@ -1,5 +1,7 @@
 import { javascript } from '@codemirror/lang-javascript'
+import { Prec } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { keymap } from '@codemirror/view'
 import { basicSetup, EditorView } from 'codemirror'
 
 import { parseSections } from './sections.js'
@@ -78,6 +80,11 @@ export class SampleEditor {
         javascript(),
         oneDark,
         editorTheme,
+        // Typing already re-renders after a 500ms debounce, so Cmd/Ctrl+Enter
+        // is a shortcut for what Run already does: skip the wait and apply
+        // the current value right away. Prec.highest so it can't be shadowed
+        // by a binding basicSetup adds for the same key in a future version.
+        Prec.highest(keymap.of([{ key: 'Mod-Enter', run: () => this.runNow() }])),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return
           section.code = update.state.doc.toString()
@@ -88,5 +95,12 @@ export class SampleEditor {
       parent: this.root,
       root: this.root,
     })
+  }
+
+  /** Runs the current value immediately, bypassing the typing debounce. */
+  runNow() {
+    clearTimeout(this.timeout)
+    this.onChange(this.value)
+    return true
   }
 }

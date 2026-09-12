@@ -253,6 +253,8 @@ astro-chartjs-editor {
 
 The tabs, editor, **Run**/**Copy**/**Reset**/**View source** toolbar, error area and output panel all sit inside a `<details>` element, collapsed by default, with "Full configuration" as its summary. The chart(s) and any `choices` controls are always visible above it. The panel sizes to its content (up to a `max-block-size` of 360px, scrolling past that) instead of reserving a fixed height regardless of how much code a sample has.
 
+Typing already re-renders the chart(s) after a 500ms debounce, but **Ctrl+Enter** (or **Cmd+Enter** on macOS) runs the current code immediately from inside the editor, same as clicking **Run**.
+
 ## Exports
 
 | Subpath                          | Module              |
