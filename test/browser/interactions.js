@@ -3,6 +3,7 @@
  * inside the element's shadow root, through `vitest/browser`'s `userEvent`
  * (real Playwright input events, not synthetic DOM dispatch).
  */
+import { EditorView } from 'codemirror'
 import { userEvent } from 'vitest/browser'
 
 export function getTabs(root) {
@@ -47,103 +48,70 @@ function escapeForTyping(text) {
   return text.replaceAll('{', '{{').replaceAll('[', '[[')
 }
 
-function activeElementIn(shadowRoot) {
-  return shadowRoot.activeElement
-}
-
-async function waitFor(predicate, { interval = 20, timeout = 2000 } = {}) {
-  const deadline = Date.now() + timeout
-  while (!predicate()) {
-    if (Date.now() > deadline) throw new Error('waitFor: condition never became true')
-    await new Promise((resolve) => setTimeout(resolve, interval))
-  }
-}
-
-// `.cm-content`'s `textContent` concatenates each source line's `.cm-line`
-// div with no separator -- browsers don't insert one between block-level
-// siblings -- so a real, correctly-typed multi-line result never contains
-// the newlines `newCode` does; this is what a correctly-typed result reads
-// as instead. Replacement code passed to `replaceCurrentSectionCode` is kept
-// to a single line for exactly this reason: CodeMirror auto-indents after a
-// typed newline (part of `basicSetup`), and that auto-indent stacks with any
-// indentation already present in a multi-line replacement string, making the
-// resulting text depend on details of how the newline was typed rather than
-// only on `newCode` itself.
-function flatten(text) {
-  return text.replaceAll('\n', '')
+/**
+ * The live CodeMirror `EditorView` behind whichever tab is currently
+ * selected. `EditorView.findFromDOM()` is a public CodeMirror API that
+ * recovers the view instance from any DOM node inside it, so this needs no
+ * export added to `SampleEditor` just for tests to reach it.
+ */
+function currentEditorView(root) {
+  const content = cmContentOf(root)
+  const view = EditorView.findFromDOM(content)
+  if (!view) throw new Error('currentEditorView: no CodeMirror view found for the current tab')
+  return view
 }
 
 /**
- * Replaces the code of whichever tab is currently selected.
+ * Replaces the code of whichever tab is currently selected with `newCode`,
+ * in one CodeMirror transaction (`view.dispatch` with a `changes` spec) --
+ * the same low-level mechanism CodeMirror itself applies for every edit,
+ * typed or not. Deterministic by construction: there is no simulated
+ * keystroke stream here to race against CodeMirror's own input handling
+ * (an earlier version of this helper did exactly that -- select-all
+ * avoided for cross-platform reasons, so it walked to the end and held
+ * Backspace, then retyped character by character with a bounded retry loop
+ * and bracket-closer cleanup for when `userEvent.type` fell behind under
+ * load -- and still occasionally delivered a scrambled result under CI
+ * load, e.g. a dropped/reordered character in the middle of a fast paste).
+ * If the resulting document isn't exactly `newCode`, this throws
+ * immediately with the actual content rather than retrying: a transaction
+ * dispatch either produces what was asked for or something is genuinely
+ * wrong, never a partial keystroke race to wait out.
  *
- * This deliberately avoids a select-all keychord. CodeMirror's `basicSetup`
- * binds it to "Mod-a", which CodeMirror resolves to Control-a or Cmd-a
- * depending on the platform it detects -- and doing that detection through a
- * real Playwright-driven browser, across Chromium and Firefox and both CI's
- * Linux and a Mac dev machine, turned out to be exactly the kind of
- * environment-dependent timing this suite otherwise avoids (it was flaky in
- * practice, passing most runs and silently mis-typing on others).
- *
- * Walking to the end and holding Backspace long enough to clear the section
- * needs no modifier-key resolution and no held state, just repeat counts
- * generous enough that the excess presses are no-ops once the caret hits the
- * start of the section.
- *
- * The whole clear-and-type cycle is verified against the DOM afterwards
- * rather than trusted blindly, with one targeted repair and a bounded number
- * of full retries: CodeMirror's `closeBrackets` extension (also part of
- * `basicSetup`) inserts a matching closer as you type an opening bracket and
- * "overtypes" -- skips over rather than duplicating -- once you type that
- * same closer yourself with the cursor immediately before it. Under fast,
- * programmatic typing that overtype has occasionally missed for the
- * outermost pair, leaving its auto-inserted closer stranded right after the
- * real content. A suite that silently exercised the wrong code path some
- * fraction of the time would be worse than a slower, self-checking one.
+ * See `typeCurrentSectionCode()` below for the one test that still needs
+ * real, character-by-character typing.
  */
-export async function replaceCurrentSectionCode(root, newCode, attempts = 3) {
-  const content = cmContentOf(root)
-  const codeShadowRoot = root.querySelector('.chartjs-editor__code').shadowRoot
-  const expected = escapeForTyping(newCode)
-  const target = flatten(newCode)
+export function replaceCurrentSectionCode(root, newCode) {
+  const view = currentEditorView(root)
+  view.dispatch({ changes: { from: 0, insert: newCode, to: view.state.doc.length } })
 
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    await userEvent.click(content)
-    await waitFor(() => activeElementIn(codeShadowRoot) === content)
-
-    const lineCount = content.querySelectorAll('.cm-line').length
-    const clearCount = content.textContent.length + 20
-    await userEvent.keyboard(`{ArrowDown>${lineCount + 5}}{End}{Backspace>${clearCount}}`)
-
-    try {
-      await waitFor(() => content.textContent === '', { timeout: 500 })
-    } catch {
-      continue // didn't fully clear; retry from a click
-    }
-
-    await userEvent.type(content, expected, { skipClick: true })
-
-    if (content.textContent === target) return
-
-    // CodeMirror's `closeBrackets` extension (part of `basicSetup`) inserts
-    // a matching closer as you type an opening bracket and "overtypes" it
-    // -- skips over rather than duplicating -- once you type that same
-    // closer yourself with the cursor immediately before it. Under fast,
-    // programmatic typing that overtype occasionally misses for the
-    // outermost pair, leaving its auto-inserted closer stranded right where
-    // the cursor stopped: real content followed by one or more genuine
-    // extra `}`/`)`/`]`. The cursor is still sitting exactly there, so
-    // deleting forward trims exactly the surplus without touching anything
-    // that was actually typed.
-    if (content.textContent.startsWith(target)) {
-      const surplus = content.textContent.length - target.length
-      await userEvent.keyboard(`{Delete>${surplus}}`)
-      if (content.textContent === target) return
-    }
+  const actual = view.state.doc.toString()
+  if (actual !== newCode) {
+    throw new Error(
+      `replaceCurrentSectionCode: content reads ${JSON.stringify(actual)}, expected ${JSON.stringify(newCode)}`
+    )
   }
+}
 
-  throw new Error(
-    `replaceCurrentSectionCode: content still reads ${JSON.stringify(content.textContent)} after ${attempts} attempts, expected ${JSON.stringify(target)}`
-  )
+/**
+ * Clears whichever tab is currently selected (via the same deterministic
+ * transaction dispatch as `replaceCurrentSectionCode`, since removing the
+ * old content isn't what's under test), then types `newCode` character by
+ * character through a real Playwright keyboard input
+ * (`@testing-library/user-event`'s `userEvent.type`, not a transaction).
+ *
+ * Kept for exactly one test (see client.spec.js's debounce test): the
+ * point there is that typing itself -- not a click, not a dispatched
+ * change -- reaches CodeMirror's own input handling and re-renders the
+ * chart once the 500ms debounce elapses with no Run click. A transaction
+ * dispatch wouldn't exercise that keyboard path at all, so this is the one
+ * place a real keystroke stream is worth its occasional flakiness.
+ */
+export async function typeCurrentSectionCode(root, newCode) {
+  const view = currentEditorView(root)
+  view.dispatch({ changes: { from: 0, insert: '', to: view.state.doc.length } })
+
+  await userEvent.type(cmContentOf(root), escapeForTyping(newCode))
 }
 
 export async function clickRun(root) {
@@ -157,10 +125,9 @@ export async function clickRun(root) {
  * resolves its 'Mod-' bindings from the event's own ctrlKey/metaKey flags,
  * not from which physical key was struck, so dispatching a real
  * KeyboardEvent with the flag set directly is a faithful, engine-agnostic
- * way to fire it -- and, per replaceCurrentSectionCode's notes above,
- * Playwright's own OS-level resolution of *which* physical key a test
- * should press for 'the' modifier key is exactly the kind of
- * platform-dependent behavior this suite has already hit flakiness from.
+ * way to fire it -- Playwright's own OS-level resolution of *which*
+ * physical key a test should press for 'the' modifier key is exactly the
+ * kind of platform-dependent behavior this suite otherwise avoids.
  */
 export function pressRunShortcut(root, { ctrlKey = false, metaKey = false } = {}) {
   cmContentOf(root).dispatchEvent(
