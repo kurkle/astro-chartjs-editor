@@ -1,6 +1,9 @@
 import chartEditor from '../src/integration.js'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
 import test from 'node:test'
+
+const { version: packageVersion } = createRequire(import.meta.url)('../package.json')
 
 function createHookArgs(configOverrides = {}) {
   const config = {
@@ -77,6 +80,17 @@ test('falls back to markdown.remarkPlugins when no processor is configured', () 
   assert.equal(options.sourceRoot, '/project/')
 })
 
+test('stamps the package version onto the remarkPlugins options so Astro re-renders on upgrade', () => {
+  const integration = chartEditor({ runtime: './docs/chart-runtime.js' })
+  const { args, updateConfigCalls } = createHookArgs()
+
+  integration.hooks['astro:config:setup'](args)
+
+  const [update] = updateConfigCalls[0]
+  const [, options] = update.markdown.remarkPlugins[0]
+  assert.equal(options.version, packageVersion)
+})
+
 test('pushes into an existing satteri mdastPlugins array instead of updating markdown config', () => {
   const integration = chartEditor({ runtime: './docs/chart-runtime.js' })
   const mdastPlugins = []
@@ -93,6 +107,7 @@ test('pushes into an existing satteri mdastPlugins array instead of updating mar
 
   assert.equal(mdastPlugins.length, 1)
   assert.equal(mdastPlugins[0].name, '@kurkle/astro-chartjs-editor')
+  assert.equal(mdastPlugins[0].version, packageVersion)
   const [update] = updateConfigCalls[0]
   assert.equal('markdown' in update, false)
 })
@@ -111,8 +126,9 @@ test('pushes into an existing remarkPlugins array instead of updating markdown c
   integration.hooks['astro:config:setup'](args)
 
   assert.equal(remarkPlugins.length, 1)
-  const [plugin] = remarkPlugins[0]
+  const [plugin, options] = remarkPlugins[0]
   assert.equal(typeof plugin, 'function')
+  assert.equal(options.version, packageVersion)
   const [update] = updateConfigCalls[0]
   assert.equal('markdown' in update, false)
 })

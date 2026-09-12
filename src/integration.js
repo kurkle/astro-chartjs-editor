@@ -1,6 +1,10 @@
 import { remarkChartEditor, satteriChartEditor } from './remark.js'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+const require = createRequire(import.meta.url)
+const { version } = require('../package.json')
 
 const VIRTUAL_RUNTIME = 'virtual:astro-chartjs-editor/runtime'
 const RESOLVED_RUNTIME = `\0${VIRTUAL_RUNTIME}`
@@ -27,6 +31,12 @@ export default function chartEditor(options) {
         const markdownOptions = {
           sourceBaseUrl: options.sourceBaseUrl,
           sourceRoot: options.sourceRoot ? path.resolve(root, options.sourceRoot) : root,
+          // Part of Astro's hashed config (config.markdown): bumping this package
+          // changes the content layer's config digest, so Astro clears its cached
+          // render output instead of serving markup produced by the previous
+          // version. See https://github.com/withastro/astro content-layer.js,
+          // where `integrations` is excluded from the digest but `markdown` is not.
+          version,
         }
         const processor = config.markdown?.processor
         const markdown = {}
