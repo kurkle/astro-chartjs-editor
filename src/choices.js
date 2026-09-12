@@ -139,44 +139,44 @@ export function getValueAtPath(source, path) {
 }
 
 /**
- * Returns a *new* object with `value` set at `path`, cloning only the
- * containers along that path -- every sibling branch (including functions,
- * which a structured clone can't carry) is kept by reference. This is what
- * makes "rebuild the config, recreate the chart" cheap: the result is a
- * fresh top-level object every time, without copying the whole tree.
+ * Writes `value` at `path`, in place -- the same thing Chart.js's own docs
+ * tell readers to do (change an option on the config you already have, call
+ * `update()`), rather than swapping in a whole new config object. Missing
+ * intermediate containers along the path are created as needed (array vs.
+ * object, chosen from the next segment, the same way an array index would
+ * naturally continue into a plain object otherwise); everything else in the
+ * tree is left exactly as it was, because nothing else was touched.
  */
 export function setValueAtPath(source, path, value) {
-  return setSegments(source, path.split('.'), value)
+  setSegments(source, path.split('.'), value)
 }
 
 function setSegments(node, segments, value) {
   const [segment, ...rest] = segments
-  const clone = cloneContainer(node, segment)
-  clone[segment] = rest.length === 0 ? value : setSegments(clone[segment], rest, value)
-  return clone
-}
-
-function cloneContainer(node, nextSegment) {
-  if (Array.isArray(node)) return node.slice()
-  if (node !== null && typeof node === 'object') return { ...node }
-  return /^\d+$/.test(nextSegment) ? [] : {}
+  if (rest.length === 0) {
+    node[segment] = value
+    return
+  }
+  if (node[segment] == null || typeof node[segment] !== 'object') {
+    node[segment] = /^\d+$/.test(rest[0]) ? [] : {}
+  }
+  setSegments(node[segment], rest, value)
 }
 
 /**
- * Applies every choice's current selection to `config`, folding each
- * `setValueAtPath` call into the next so the result is one rebuilt config
- * reflecting all of them. With no choices (or an empty `selections`), the
- * original `config` reference is returned untouched.
+ * Applies every choice's current selection to `config`, in place, and
+ * returns it back for convenience. With no choices, `config` is returned
+ * untouched.
  *
  * @param {unknown} config
  * @param {NormalizedChoice[]} choices
  * @param {Record<string, unknown>} selections keyed by `choice.path`
  */
 export function applyChoices(config, choices, selections) {
-  return choices.reduce(
-    (current, choice) => setValueAtPath(current, choice.path, selections[choice.path]),
-    config
-  )
+  for (const choice of choices) {
+    setValueAtPath(config, choice.path, selections[choice.path])
+  }
+  return config
 }
 
 /**

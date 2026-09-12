@@ -109,10 +109,11 @@ describe('choices: initial selection', () => {
     element = mount(CHOICES_SAMPLE)
     const root = shadowOf(element)
 
-    // CHOICES_SAMPLE's config sets options.indexAxis: 'x', so 'x' -- the
-    // first declared value -- must read active. Flip the declaration order
-    // in samples.js and this would still need to pass, which is the point:
-    // it's the config's value driving this, not array position.
+    // CHOICES_SAMPLE's config sets options.scales.y.type: 'linear', so
+    // 'linear' -- the first declared value -- must read active. Flip the
+    // declaration order in samples.js and this would still need to pass,
+    // which is the point: it's the config's value driving this, not array
+    // position.
     const [first, second] = root.querySelectorAll('[role="radio"]')
     expect(first.getAttribute('aria-checked')).toBe('true')
     expect(second.getAttribute('aria-checked')).toBe('false')
@@ -153,7 +154,10 @@ describe('choices: readout', () => {
     element = mount(CHOICES_SAMPLE)
     const root = shadowOf(element)
 
-    expect(readouts(root)).toEqual(["options.indexAxis: 'x'", 'data.datasets.0.borderWidth: 1'])
+    expect(readouts(root)).toEqual([
+      "options.scales.y.type: 'linear'",
+      'data.datasets.0.borderWidth: 1',
+    ])
   })
 
   it('updates the readout when the selection changes', async () => {
@@ -163,7 +167,7 @@ describe('choices: readout', () => {
 
     await userEvent.click(secondRadio)
 
-    expect(readouts(root)[0]).toBe("options.indexAxis: 'y'")
+    expect(readouts(root)[0]).toBe("options.scales.y.type: 'logarithmic'")
   })
 })
 
@@ -274,16 +278,18 @@ describe('choices: applying a selection', () => {
   })
 })
 
-/** The dimension ('width' or 'height') that differs more between two bar
- * elements of different values -- 'height' for a vertical (indexAxis: 'x')
- * bar chart, 'width' for a horizontal (indexAxis: 'y') one. A property the
- * controller actually computed for the live elements, not a readback of the
- * `options.indexAxis` value a choice just wrote. */
-function varyingDimension(chart) {
-  const [first, , third] = chart.getDatasetMeta(0).data
-  const heightDelta = Math.abs(third.height - first.height)
-  const widthDelta = Math.abs(third.width - first.width)
-  return heightDelta > widthDelta ? 'height' : 'width'
+/** True when the y scale is currently spacing values linearly rather than
+ * logarithmically -- computed from the scale's own getPixelForValue(), not
+ * from the `options.scales.y.type` string a choice just wrote. Equal
+ * absolute steps between CHOICES_SAMPLE's data values (3 to 6, 6 to 9, each
+ * +3) land at equal pixel gaps only on a linear scale; a logarithmic scale
+ * spaces equal *ratios* evenly instead, and 6/3 (2x) isn't the same ratio as
+ * 9/6 (1.5x), so its two gaps come out visibly different. */
+function yScaleIsLinear(chart) {
+  const scale = chart.scales.y
+  const gapLow = Math.abs(scale.getPixelForValue(6) - scale.getPixelForValue(3))
+  const gapHigh = Math.abs(scale.getPixelForValue(9) - scale.getPixelForValue(6))
+  return Math.abs(gapLow - gapHigh) < 1
 }
 
 describe('choices: mutate in place', () => {
@@ -306,8 +312,8 @@ describe('choices: mutate in place', () => {
   })
 
   // Point 2 of the proof, for a *value* choice under `options`
-  // (options.indexAxis): toggled 6 times (more than the required 5), with
-  // every toggle checked against geometry the bar controller actually
+  // (options.scales.y.type): toggled 6 times (more than the required 5),
+  // with every toggle checked against pixel spacing the scale actually
   // computed -- not the config just written. CHOICES_SAMPLE disables
   // animation, so update() draws synchronously (see Chart.js's
   // Chart#render(): it calls draw() directly rather than scheduling one
@@ -319,13 +325,13 @@ describe('choices: mutate in place', () => {
     const chart = Chart.getChart(root.querySelector('canvas'))
     const [firstRadio, secondRadio] = root.querySelectorAll('[role="radio"]')
 
-    // options.indexAxis starts at 'x' (vertical bars: height varies).
-    expect(varyingDimension(chart)).toBe('height')
+    // options.scales.y.type starts at 'linear'.
+    expect(yScaleIsLinear(chart)).toBe(true)
 
     for (let toggle = 0; toggle < 6; toggle++) {
-      const selectingY = toggle % 2 === 0
-      await userEvent.click(selectingY ? secondRadio : firstRadio)
-      expect(varyingDimension(chart)).toBe(selectingY ? 'width' : 'height')
+      const selectingLogarithmic = toggle % 2 === 0
+      await userEvent.click(selectingLogarithmic ? secondRadio : firstRadio)
+      expect(yScaleIsLinear(chart)).toBe(!selectingLogarithmic)
     }
   })
 
@@ -420,7 +426,7 @@ describe('choices: keyboard', () => {
     expect(second.getAttribute('aria-checked')).toBe('true')
     expect(second.tabIndex).toBe(0)
     expect(first.tabIndex).toBe(-1)
-    expect(readouts(root)[0]).toBe("options.indexAxis: 'y'")
+    expect(readouts(root)[0]).toBe("options.scales.y.type: 'logarithmic'")
   })
 })
 

@@ -137,6 +137,19 @@ export const CHARTS_MISSING_CONFIG_SAMPLE = `module.exports = { charts: [{ title
 // One radio choice (2 values, targeting `options`) and one range choice
 // (targeting `data`), so rebuildCharts() is exercised on both branches of
 // the config a choice can reach into.
+//
+// The `options` choice deliberately targets `scales.y.type`, not
+// `indexAxis`: Chart.js's initOptions() materializes the `_index_`/`_value_`
+// scale placeholders into concrete `x`/`y` keys and writes them back onto
+// the config object it was given. Once `options.scales.y.type` exists
+// concretely, a later in-place `indexAxis` change can't re-map which axis
+// is which -- the concrete keys outrank the placeholders on the next merge
+// -- a genuine Chart.js bug (confirmed against 4.5.1 with a bare
+// `chart.js/auto` chart, no client.js involved: mutating `indexAxis` in
+// place is broken, and so is reassigning `chart.options` to a spread copy,
+// since the copy carries the same materialized `scales` forward). Changing
+// a scale's own `type` in place doesn't hit this -- the scale is rebuilt
+// correctly -- so that's what this fixture exercises instead.
 export const CHOICES_SAMPLE = `const config = {
   type: 'bar',
   data: {
@@ -145,16 +158,15 @@ export const CHOICES_SAMPLE = `const config = {
   },
   options: {
     animation: false,
-    indexAxis: 'x',
     plugins: { legend: false },
-    scales: { x: { display: false }, y: { display: false } },
+    scales: { x: { display: false }, y: { display: false, type: 'linear' } },
   },
 }
 
 module.exports = {
   config,
   choices: [
-    { path: 'options.indexAxis', values: ['x', 'y'] },
+    { path: 'options.scales.y.type', values: ['linear', 'logarithmic'] },
     { max: 10, min: 0, path: 'data.datasets.0.borderWidth', step: 1 },
   ],
 }`
