@@ -52,6 +52,45 @@ describe('mounting', () => {
   })
 })
 
+describe('chart header', () => {
+  // mount() builds the exact markup remarkChartEditor emits (see utils.js's
+  // header comment), so `title: ''` here stands in for a fence with no
+  // title= meta on a page that -- after this fix -- resolves to no title at
+  // all (see src/remark.js's editorMarkup() and its dedicated coverage in
+  // test/remark.test.js, which is what actually exercises the regression:
+  // remark.js reads node:buffer/node:path and can't be imported into this
+  // browser bundle). What's tested here is the DOM contract that consumes
+  // that resolved title: an empty title must hide the header outright,
+  // taking no vertical space, rather than leaving a hollow box behind.
+  it('is hidden and takes no vertical space when there is no title', () => {
+    element = mount(BASIC_SAMPLE, { title: '' })
+    const root = shadowOf(element)
+    const header = root.querySelector('.chartjs-editor__chart-header')
+
+    expect(header.hidden).toBe(true)
+    expect(header.getBoundingClientRect().height).toBe(0)
+  })
+
+  // Stands in for a fence with title="Node Padding" (or chartTitle) in its
+  // meta -- the still-honored side of the fallback chain.
+  it('shows the title text and takes up space when a title is set', () => {
+    element = mount(BASIC_SAMPLE, { title: 'Node Padding' })
+    const root = shadowOf(element)
+    const header = root.querySelector('.chartjs-editor__chart-header')
+
+    expect(header.hidden).toBe(false)
+    expect(header.textContent).toBe('Node Padding')
+    expect(header.getBoundingClientRect().height).toBeGreaterThan(0)
+  })
+
+  it('still gives the canvas a real aria-label when the title is empty', () => {
+    element = mount(BASIC_SAMPLE, { title: '' })
+    const root = shadowOf(element)
+
+    expect(root.querySelector('canvas').getAttribute('aria-label')).toBe('Chart.js sample')
+  })
+})
+
 describe('code panel', () => {
   it('is collapsed by default and opens on click', async () => {
     element = mount(BASIC_SAMPLE)

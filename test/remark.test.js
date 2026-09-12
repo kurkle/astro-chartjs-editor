@@ -14,7 +14,7 @@ test('turns a chart-editor fence into an editor element', () => {
     ],
     type: 'root',
   }
-  const file = { data: { astro: { frontmatter: { title: 'Example' } } } }
+  const file = { data: { astro: { frontmatter: { chartTitle: 'Example' } } } }
   remarkChartEditor()(tree, file)
   assert.equal(tree.children[0].type, 'html')
   assert.match(tree.children[0].value, /data-title="Example"/)
@@ -32,7 +32,7 @@ test('provides the equivalent Sätteri code visitor', () => {
       value: 'module.exports = {config: {}}',
     },
     {
-      data: { astro: { frontmatter: { title: 'Sätteri example' } } },
+      data: { astro: { frontmatter: { chartTitle: 'Sätteri example' } } },
       fileURL: undefined,
     }
   )
@@ -108,6 +108,82 @@ test('defaults the height to 420 and the title to empty when neither meta nor fr
   remarkChartEditor()(tree, file)
   assert.match(tree.children[0].value, /data-title=""/)
   assert.match(tree.children[0].value, /data-height="420"/)
+})
+
+test('titles the demo from the fence meta when title= is set', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor title="Auto (default)"',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = {
+    data: { astro: { frontmatter: { chartTitle: 'Ignored', title: 'Also ignored' } } },
+  }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-title="Auto \(default\)"/)
+})
+
+test('falls back to frontmatter.chartTitle when the fence has no title= meta', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: { astro: { frontmatter: { chartTitle: 'Node Padding demo' } } } }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-title="Node Padding demo"/)
+})
+
+test('does not fall back to the page frontmatter.title -- that would repeat the page heading', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  // Only the page's own title is set (the common case: a sample page with
+  // frontmatter `title: 'Node Padding'` and a fence that sets neither
+  // `title=` nor `chartTitle`). Before the fix this leaked into the demo's
+  // own header, repeating the page's <h1> text inside the box right below
+  // it. It must now come out empty, which hides the header entirely (see
+  // `header.hidden = !title` in client.js).
+  const file = { data: { astro: { frontmatter: { title: 'Node Padding' } } } }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-title=""/)
+})
+
+test('is empty when neither the fence nor the frontmatter set a title', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: { astro: { frontmatter: {} } } }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-title=""/)
 })
 
 test('omits the source link when sourceBaseUrl is not configured', () => {

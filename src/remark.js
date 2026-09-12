@@ -16,7 +16,7 @@ function getMetaValue(meta, name) {
 }
 
 function editorMarkup({ code, frontmatter = {}, meta, options = {}, pathname }) {
-  const title = getMetaValue(meta, 'title') ?? frontmatter.chartTitle ?? frontmatter.title ?? ''
+  const title = getMetaValue(meta, 'title') ?? frontmatter.chartTitle ?? ''
   const height = Number(getMetaValue(meta, 'height') ?? frontmatter.chartHeight ?? 420)
   let sourceUrl = ''
 

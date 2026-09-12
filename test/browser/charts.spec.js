@@ -7,6 +7,7 @@ import {
   CONFIG_AND_CHARTS_SAMPLE,
   MULTI_ACTIONS_SAMPLE,
   MULTI_SAMPLE,
+  MULTI_SAMPLE_TEXTLESS,
 } from './samples.js'
 import { hasInk, mount, shadowOf, unmount } from './utils.js'
 
@@ -33,6 +34,20 @@ describe('multiple charts', () => {
       (node) => node.textContent
     )
     expect(chartTitles).toEqual(['Bars', 'Line'])
+  })
+
+  it('falls back each canvas aria-label to a generic label when neither the entry nor the demo has a title', () => {
+    // No per-entry `title` (MULTI_SAMPLE_TEXTLESS) and no demo title either
+    // (mount()'s default `title: ''`) -- entry.title || fallbackTitle ||
+    // 'Chart.js sample' (client.js's appendChartCanvas) must still land on
+    // the last resort for every canvas, not an empty attribute.
+    element = mount(MULTI_SAMPLE_TEXTLESS)
+    const root = shadowOf(element)
+
+    const labels = Array.from(root.querySelectorAll('canvas')).map((canvas) =>
+      canvas.getAttribute('aria-label')
+    )
+    expect(labels).toEqual(['Chart.js sample', 'Chart.js sample'])
   })
 
   it('re-renders every chart on Run', async () => {
