@@ -205,13 +205,13 @@ describe('editing', () => {
     expect(dataText).not.toContain('9, 3, 6')
   })
 
-  it('writes the composed code to the clipboard, falling back to execCommand when the Clipboard API is unavailable', async () => {
+  it('writes the composed code to the clipboard and shows "Copied" on success', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
     const originalClipboard = navigator.clipboard
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
-      value: { writeText: () => Promise.reject(new Error('denied in headless')) },
+      value: { writeText },
     })
-    const execCommandSpy = vi.spyOn(document, 'execCommand').mockReturnValue(true)
 
     try {
       element = mount(BASIC_SAMPLE)
@@ -221,9 +221,42 @@ describe('editing', () => {
       await clickCopy(root)
 
       await expect.poll(() => root.querySelector('[data-chart-copy]').textContent).toBe('Copied')
-      expect(execCommandSpy).toHaveBeenCalledWith('copy')
+      expect(writeText).toHaveBeenCalledOnce()
+      expect(root.querySelector('.chartjs-editor__error').textContent).toBe('')
     } finally {
-      execCommandSpy.mockRestore()
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      })
+    }
+  })
+
+  // No execCommand('copy') fallback anymore (see copyText() in client.js):
+  // every context these docs sites actually run in is a secure context,
+  // where the Clipboard API is always available, so a rejected write is a
+  // real failure (permission denied, or blocked for some other reason),
+  // not a signal to fall back to a deprecated API. It must surface through
+  // the same error area as any other failure -- not a false "Copied".
+  it('shows the error, not a false "Copied", when the clipboard write is rejected', async () => {
+    const originalClipboard = navigator.clipboard
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error('denied in headless')) },
+    })
+
+    try {
+      element = mount(BASIC_SAMPLE)
+      const root = shadowOf(element)
+
+      await openDetails(root)
+      await clickCopy(root)
+
+      await expect.poll(() => root.querySelector('.chartjs-editor__error').textContent).not.toBe('')
+      expect(root.querySelector('.chartjs-editor__error').textContent).toContain(
+        'denied in headless'
+      )
+      expect(root.querySelector('[data-chart-copy]').textContent).toBe('Copy')
+    } finally {
       Object.defineProperty(navigator, 'clipboard', {
         configurable: true,
         value: originalClipboard,
