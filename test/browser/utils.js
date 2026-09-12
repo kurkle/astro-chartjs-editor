@@ -14,10 +14,14 @@ function escapeAttribute(value) {
   return String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;')
 }
 
-export function mount(code, { title = '', height = 240, sourceUrl = '' } = {}) {
+export function mount(
+  code,
+  { title = '', height = 240, sourceUrl = '', codePanel = undefined } = {}
+) {
   const container = document.createElement('div')
+  const codeAttribute = codePanel === undefined ? '' : ` data-code="${escapeAttribute(codePanel)}"`
   container.innerHTML =
-    `<astro-chartjs-editor data-title="${escapeAttribute(title)}" data-height="${height}" data-source-url="${escapeAttribute(sourceUrl)}">` +
+    `<astro-chartjs-editor data-title="${escapeAttribute(title)}" data-height="${height}" data-source-url="${escapeAttribute(sourceUrl)}"${codeAttribute}>` +
     `<template data-chart-code data-encoding="base64">${encodeBase64(code)}</template>` +
     `</astro-chartjs-editor>`
   document.body.append(container)

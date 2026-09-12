@@ -186,6 +186,57 @@ test('is empty when neither the fence nor the frontmatter set a title', () => {
   assert.match(tree.children[0].value, /data-title=""/)
 })
 
+test('passes code="open" through as a data-code attribute', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor code="open"',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: {} }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-code="open"/)
+})
+
+test('passes code="collapsed" through as a data-code attribute', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor code="collapsed"',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: {} }
+  remarkChartEditor()(tree, file)
+  assert.match(tree.children[0].value, /data-code="collapsed"/)
+})
+
+test('omits the data-code attribute entirely when the fence has no code= meta', () => {
+  const tree = {
+    children: [
+      {
+        lang: 'js',
+        meta: 'chart-editor',
+        type: 'code',
+        value: 'module.exports = {config: {}}',
+      },
+    ],
+    type: 'root',
+  }
+  const file = { data: {} }
+  remarkChartEditor()(tree, file)
+  assert.doesNotMatch(tree.children[0].value, /data-code/)
+})
+
 test('omits the source link when sourceBaseUrl is not configured', () => {
   const tree = {
     children: [

@@ -309,6 +309,12 @@ class ChartEditorElement extends HTMLElement {
     const height = Number(this.dataset.height || 420)
     const title = this.dataset.title
     const sourceUrl = this.dataset.sourceUrl
+    // 'open'/'collapsed' (from a fence's code= meta) force the code panel's
+    // initial state either way; anything else -- unset, or an unrecognized
+    // value -- falls through to the automatic rule below, computed once the
+    // sample's choiceDescriptors are known (see the `detailsNode.open =`
+    // assignment after the initial render() call).
+    const codeOverride = this.dataset.code
 
     const header = document.createElement('div')
     header.className = 'chartjs-editor__chart-header'
@@ -483,6 +489,23 @@ class ChartEditorElement extends HTMLElement {
       render(initialCode)
     })
     render(initialCode)
+
+    // The automatic rule: a sample with no `choices` has nothing standing
+    // in for the full configuration, so that *is* the thing the sample
+    // demonstrates -- open by default. A sample with one or more `choices`
+    // already surfaces the setting worth calling out via its control, so
+    // the panel starts collapsed (see README's "The code panel"). This
+    // runs once, after the initial render() populated choiceDescriptors
+    // (or left it at its `[]` default if the initial code threw) -- later
+    // edits/Run don't reopen or recollapse a panel the reader may have
+    // already toggled themselves.
+    if (codeOverride === 'open') {
+      detailsNode.open = true
+    } else if (codeOverride === 'collapsed') {
+      detailsNode.open = false
+    } else {
+      detailsNode.open = choiceDescriptors.length === 0
+    }
   }
 }
 

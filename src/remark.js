@@ -18,6 +18,7 @@ function getMetaValue(meta, name) {
 function editorMarkup({ code, frontmatter = {}, meta, options = {}, pathname }) {
   const title = getMetaValue(meta, 'title') ?? frontmatter.chartTitle ?? ''
   const height = Number(getMetaValue(meta, 'height') ?? frontmatter.chartHeight ?? 420)
+  const codePanel = getMetaValue(meta, 'code')
   let sourceUrl = ''
 
   if (options.sourceBaseUrl && pathname) {
@@ -25,8 +26,9 @@ function editorMarkup({ code, frontmatter = {}, meta, options = {}, pathname }) 
     sourceUrl = `${options.sourceBaseUrl}${relativePath.split(path.sep).join('/')}`
   }
 
+  const codeAttribute = codePanel === undefined ? '' : ` data-code="${escapeAttribute(codePanel)}"`
   const encodedCode = Buffer.from(code, 'utf8').toString('base64')
-  return `<astro-chartjs-editor data-title="${escapeAttribute(title)}" data-height="${height}" data-source-url="${escapeAttribute(sourceUrl)}"><template data-chart-code data-encoding="base64">${encodedCode}</template></astro-chartjs-editor>`
+  return `<astro-chartjs-editor data-title="${escapeAttribute(title)}" data-height="${height}" data-source-url="${escapeAttribute(sourceUrl)}"${codeAttribute}><template data-chart-code data-encoding="base64">${encodedCode}</template></astro-chartjs-editor>`
 }
 
 function walk(node, visitor) {
