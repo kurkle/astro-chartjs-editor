@@ -11,6 +11,17 @@
   margin-bottom: 0.75rem;
 }
 
+.chartjs-editor__charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.chartjs-editor__chart-title {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
 canvas {
   display: block;
   inline-size: 100%;

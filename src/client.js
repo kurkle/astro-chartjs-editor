@@ -1,3 +1,4 @@
+import { normalizeCharts } from './charts.js'
 import { SampleEditor } from './editor.js'
 import editorStyles from './styles.css?inline'
 import { createChart, globals } from 'virtual:astro-chartjs-editor/runtime'
@@ -52,6 +53,43 @@ async function copyText(value) {
   }
 }
 
+function appendChartCanvas(chartsGrid, entry, height, fallbackTitle) {
+  const chartNode = document.createElement('div')
+  chartNode.className = 'chartjs-editor__chart'
+  if (entry.title) {
+    const chartHeading = document.createElement('strong')
+    chartHeading.className = 'chartjs-editor__chart-title'
+    chartHeading.textContent = entry.title
+    chartNode.append(chartHeading)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = 800
+  canvas.height = height
+  canvas.setAttribute('aria-label', entry.title || fallbackTitle || 'Chart.js sample')
+  canvas.setAttribute('role', 'img')
+  chartNode.append(canvas)
+  chartsGrid.append(chartNode)
+  return canvas
+}
+
+function renderCharts(chartsGrid, previousCharts, entries, height, fallbackTitle) {
+  for (const previousChart of previousCharts) previousChart?.destroy()
+  chartsGrid.replaceChildren()
+  return entries.map((entry) => {
+    const canvas = appendChartCanvas(chartsGrid, entry, height, fallbackTitle)
+    return createChart(canvas, entry.config)
+  })
+}
+
+function renderActions(actionsNode, actions, charts, isMulti) {
+  actionsNode.replaceChildren()
+  for (const action of actions) {
+    const button = createButton(action.name, 'data-chart-action')
+    button.addEventListener('click', () => action.handler(isMulti ? charts : charts[0]))
+    actionsNode.append(button)
+  }
+}
+
 function createButton(label, attribute) {
   const button = document.createElement('button')
   button.type = 'button'
@@ -84,11 +122,8 @@ class ChartEditorElement extends HTMLElement {
     header.append(heading)
     header.hidden = !title
 
-    const canvas = document.createElement('canvas')
-    canvas.width = 800
-    canvas.height = height
-    canvas.setAttribute('aria-label', title || 'Chart.js sample')
-    canvas.setAttribute('role', 'img')
+    const chartsGrid = document.createElement('div')
+    chartsGrid.className = 'chartjs-editor__charts'
 
     const actionsNode = document.createElement('div')
     actionsNode.className = 'chartjs-editor__actions'
@@ -132,9 +167,9 @@ class ChartEditorElement extends HTMLElement {
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' })
     const style = document.createElement('style')
     style.textContent = editorStyles
-    root.replaceChildren(style, header, canvas, actionsNode, editorNode)
+    root.replaceChildren(style, header, chartsGrid, actionsNode, editorNode)
 
-    let chart
+    let charts = []
     let editor
 
     const render = (code) => {
@@ -154,15 +189,13 @@ class ChartEditorElement extends HTMLElement {
       }
 
       try {
-        const { actions = [], config, output = false } = evaluateSample(code, sampleConsole)
-        chart?.destroy()
-        chart = createChart(canvas, config)
-        actionsNode.replaceChildren()
-        for (const action of actions) {
-          const button = createButton(action.name, 'data-chart-action')
-          button.addEventListener('click', () => action.handler(chart))
-          actionsNode.append(button)
-        }
+        const sampleExports = evaluateSample(code, sampleConsole)
+        const entries = normalizeCharts(sampleExports)
+        const { actions = [], output = false } = sampleExports
+        const isMulti = Array.isArray(sampleExports.charts)
+
+        charts = renderCharts(chartsGrid, charts, entries, height, title)
+        renderActions(actionsNode, actions, charts, isMulti)
         outputNode.hidden = !output
         refreshOutput(typeof output === 'string' ? output : undefined)
       } catch (error) {
