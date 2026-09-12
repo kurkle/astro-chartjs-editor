@@ -388,12 +388,19 @@ class ChartEditorElement extends HTMLElement {
     let selections = {}
     let currentActions = []
     let currentIsMulti = false
+    // The type each chart in `charts` is actually running as, tracked here
+    // rather than read back from `entry.config.type`: applyChoices() writes
+    // into that same config object in place, so after a rejected selection
+    // (see rebuildCharts() below) it can hold a value the chart was never
+    // actually updated to show. `chart.config.type` would read that
+    // rejected value back on the next attempt and compare against itself.
+    let currentTypes = []
 
-    // Applies every choice's current selection to a fresh clone of each
-    // entry's config. applyChoices() always hands back a new top-level
-    // object -- never a poke into the live one -- so the result never
-    // depends on the order options happen to resolve in, and works the same
-    // way whether a choice targets `options` or `data`. Shared by the
+    // Applies every choice's current selection to each entry's config, in
+    // place -- setValueAtPath() writes the value at its path directly into
+    // whatever object is already there, the same as Chart.js's own docs
+    // tell readers to do (change an option on the config you have, call
+    // update()), rather than swapping in a whole new one. Shared by the
     // from-scratch render below and by rebuildCharts()'s in-place update.
     const buildEntries = () =>
       baseEntries.map((entry) => ({
@@ -407,45 +414,51 @@ class ChartEditorElement extends HTMLElement {
     // configuration in ways a live instance can't absorb, so this always
     // destroys whatever charts exist and builds fresh ones.
     const renderAllCharts = () => {
-      charts = renderCharts(chartsGrid, charts, buildEntries(), height, title)
+      const built = buildEntries()
+      charts = renderCharts(chartsGrid, charts, built, height, title)
+      currentTypes = built.map((entry) => entry.config.type)
       renderActions(actionsNode, currentActions, charts, currentIsMulti)
     }
 
     // Applies a choice selection to the charts already on screen by
-    // mutating each live instance instead of recreating it: `chart.data =
-    // ...`, `chart.options = ...` (both supported Chart.js setters that
-    // write straight through to `chart.config`), then `chart.update()`.
-    // `update()` runs `config.update()`, which clears Chart.js's per-instance
-    // option caches (`_scopeCache`, `_resolverCache`) before anything is
-    // resolved again -- so handing it a freshly built config (see
-    // buildEntries() above) is safe: there is nothing stale from the
-    // previous selection left to resolve.
+    // mutating them in place instead of recreating them. A live chart's
+    // `chart.config` already wraps the exact same `data`/`options` objects
+    // buildEntries() just wrote into (Chart.js's Config keeps the object it
+    // was constructed with; see initConfig()/initData() in Chart.js's
+    // source, which mutate and return their argument rather than cloning
+    // it) -- so by the time buildEntries() returns, the live chart's own
+    // config already holds the new values, and all that's left to do is
+    // ask it to redraw. `chart.update()` runs `config.update()`, which
+    // clears Chart.js's per-instance option caches (`_scopeCache`,
+    // `_resolverCache`) before anything is resolved again, so nothing
+    // stale from the previous selection survives.
     //
     // A chart's `type` is the one thing that can't be changed this way --
     // Chart.js has no supported path for turning a live instance into a
     // different controller/element/scale trio -- so a choice that would
     // change it throws instead of silently doing nothing or quietly
-    // recreating the chart. Every entry is checked before any of them is
-    // mutated, so a rejected selection never leaves some charts updated and
-    // others not.
+    // recreating the chart. Compared against `currentTypes`, not against
+    // `entry.config.type` freshly read off the chart's own config: that
+    // object was just mutated in place by buildEntries(), so it can no
+    // longer say what the type was *before* this selection. Every chart is
+    // checked before any of them is updated, so a rejected selection never
+    // leaves some charts redrawn and others not -- and `currentTypes` is
+    // only advanced past the ones actually redrawn, so a rejected
+    // selection's stray write to `entry.config.type` doesn't fool the next
+    // attempt into comparing a corrupted value against itself.
     const rebuildCharts = () => {
       const built = buildEntries()
 
       for (const [index, entry] of built.entries()) {
-        const chart = charts[index]
-        if (chart.config.type !== entry.config.type) {
+        if (entry.config.type !== currentTypes[index]) {
           throw new TypeError(
-            `Sample \`choices\` path 'type' would change this chart's type from '${chart.config.type}' to '${entry.config.type}'; changing a chart's type through \`choices\` isn't supported.`
+            `Sample \`choices\` path 'type' would change this chart's type from '${currentTypes[index]}' to '${entry.config.type}'; changing a chart's type through \`choices\` isn't supported.`
           )
         }
       }
 
-      for (const [index, entry] of built.entries()) {
-        const chart = charts[index]
-        chart.data = entry.config.data
-        chart.options = entry.config.options
-        chart.update()
-      }
+      for (const chart of charts) chart.update()
+      currentTypes = built.map((entry) => entry.config.type)
 
       // No renderActions() call here, deliberately: `charts` keeps the same
       // array holding the same instances (nothing above reassigns it), and

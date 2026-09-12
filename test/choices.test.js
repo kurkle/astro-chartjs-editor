@@ -164,43 +164,41 @@ test('reading a missing intermediate value returns undefined, not a throw', () =
   assert.equal(getValueAtPath(undefined, 'options.x'), undefined)
 })
 
-test('writes a dotted path into a new object, leaving the source untouched', () => {
+test('writes a dotted path in place, mutating the source', () => {
   const source = { options: { x: 'auto', y: 'kept' } }
   const result = setValueAtPath(source, 'options.x', 'even')
 
-  assert.equal(result.options.x, 'even')
-  assert.equal(source.options.x, 'auto', 'the source object must not be mutated')
-  assert.equal(result.options.y, 'kept')
-  assert.notEqual(result, source)
-  assert.notEqual(result.options, source.options)
+  assert.equal(source.options.x, 'even')
+  assert.equal(source.options.y, 'kept')
+  assert.equal(result, undefined, 'setValueAtPath writes in place; it has no return value')
 })
 
 test('writes through an array index without disturbing sibling entries', () => {
   const source = { data: { datasets: [{ borderWidth: 1 }, { borderWidth: 2 }] } }
-  const result = setValueAtPath(source, 'data.datasets.0.borderWidth', 9)
+  setValueAtPath(source, 'data.datasets.0.borderWidth', 9)
 
-  assert.equal(result.data.datasets[0].borderWidth, 9)
-  assert.equal(result.data.datasets[1].borderWidth, 2)
-  assert.equal(source.data.datasets[0].borderWidth, 1, 'the source must not be mutated')
+  assert.equal(source.data.datasets[0].borderWidth, 9)
+  assert.equal(source.data.datasets[1].borderWidth, 2)
 })
 
-test('keeps unrelated branches -- including functions -- by reference', () => {
+test('leaves unrelated branches -- including functions -- untouched', () => {
   const tick = () => 'tick'
   const source = { options: { plugins: { tooltip: { callbacks: { label: tick } } }, x: 'auto' } }
-  const result = setValueAtPath(source, 'options.x', 'even')
+  setValueAtPath(source, 'options.x', 'even')
 
-  assert.equal(result.options.plugins.callbacks, source.options.plugins.callbacks)
-  assert.equal(result.options.plugins, source.options.plugins)
-  assert.equal(result.options.plugins.tooltip.callbacks.label, tick)
+  assert.equal(source.options.x, 'even')
+  assert.equal(source.options.plugins.tooltip.callbacks.label, tick)
 })
 
 test('creates missing containers, choosing array vs object from the next segment', () => {
-  const result = setValueAtPath({}, 'data.datasets.0.borderWidth', 4)
-  assert.ok(Array.isArray(result.data.datasets))
-  assert.equal(result.data.datasets[0].borderWidth, 4)
+  const source = {}
+  setValueAtPath(source, 'data.datasets.0.borderWidth', 4)
+
+  assert.ok(Array.isArray(source.data.datasets))
+  assert.equal(source.data.datasets[0].borderWidth, 4)
 })
 
-test('applyChoices folds every choice into one rebuilt config', () => {
+test('applyChoices applies every choice to the config in place', () => {
   const [mode, size] = normalizeChoices({
     choices: [
       { path: 'options.nodePaddingMode', values: ['auto', 'even'] },
@@ -214,8 +212,8 @@ test('applyChoices folds every choice into one rebuilt config', () => {
     'options.nodePaddingMode': 'even',
   })
 
-  assert.deepEqual(result, { options: { nodeMinSize: 12, nodePaddingMode: 'even' } })
-  assert.equal(config.options.nodePaddingMode, 'auto', 'the original config must not be mutated')
+  assert.deepEqual(config, { options: { nodeMinSize: 12, nodePaddingMode: 'even' } })
+  assert.equal(result, config, 'applyChoices hands the same, now-mutated config back')
 })
 
 test('applyChoices with no choices returns the original config reference unchanged', () => {
