@@ -101,14 +101,35 @@ function appendChartCanvas(chartsGrid, entry, height, fallbackTitle) {
     chartHeading.textContent = entry.title
     chartNode.append(chartHeading)
   }
+  // The wrapper, not the canvas, carries the block's actual height
+  // (data-height): see .chartjs-editor__canvas-wrapper in styles.css for
+  // why the canvas can't drive its own container's size here.
+  const canvasWrapper = document.createElement('div')
+  canvasWrapper.className = 'chartjs-editor__canvas-wrapper'
+  canvasWrapper.style.setProperty('--chartjs-editor-chart-height', `${height}px`)
   const canvas = document.createElement('canvas')
   canvas.width = 800
   canvas.height = height
   canvas.setAttribute('aria-label', entry.title || fallbackTitle || 'Chart.js sample')
   canvas.setAttribute('role', 'img')
-  chartNode.append(canvas)
+  canvasWrapper.append(canvas)
+  chartNode.append(canvasWrapper)
   chartsGrid.append(chartNode)
   return canvas
+}
+
+// Chart.js sizes a responsive chart (the default) from its canvas's parent
+// element, not from the canvas's own width/height attributes -- but only
+// once `maintainAspectRatio` is off; otherwise it keeps stretching or
+// shrinking the canvas to preserve those attributes' aspect ratio instead
+// of filling the wrapper .chartjs-editor__canvas-wrapper actually gives it.
+// Defaulted here, not baked into every sample, and only when the sample's
+// own config hasn't set it -- an explicit choice a sample makes (to keep an
+// aspect ratio deliberately, say) is never overridden.
+function withResponsiveDefault(config) {
+  const options = config?.options
+  if (options && Object.hasOwn(options, 'maintainAspectRatio')) return config
+  return { ...config, options: { ...options, maintainAspectRatio: false } }
 }
 
 function renderCharts(chartsGrid, previousCharts, entries, height, fallbackTitle) {
@@ -116,7 +137,7 @@ function renderCharts(chartsGrid, previousCharts, entries, height, fallbackTitle
   chartsGrid.replaceChildren()
   return entries.map((entry) => {
     const canvas = appendChartCanvas(chartsGrid, entry, height, fallbackTitle)
-    return createChart(canvas, entry.config)
+    return createChart(canvas, withResponsiveDefault(entry.config))
   })
 }
 
