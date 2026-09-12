@@ -78,5 +78,11 @@ export function satteriChartEditor(options = {}) {
       }
     },
     name: '@kurkle/astro-chartjs-editor',
+    // `code` is a function, so Astro's JSON-based config digest drops it: only
+    // plain fields on this object reach the hash the content layer compares
+    // across builds. Surfacing the version here (mirrors remarkChartEditor's
+    // options object, which is serialized as-is) is what busts the cache when
+    // this package is upgraded.
+    version: options.version,
   }
 }

@@ -36,6 +36,14 @@ The integration injects a page script (`import '@kurkle/astro-chartjs-editor/cli
 - otherwise, if `markdown.processor.options.remarkPlugins` is already an array, it pushes `[remarkChartEditor, options]` into that array;
 - otherwise, it sets `markdown.remarkPlugins` on the config it hands to `updateConfig`.
 
+### Cache invalidation across upgrades
+
+Astro's content layer keeps a persistent cache of rendered Markdown in `node_modules/.astro/data-store.json`, keyed by a digest of the parts of the Astro config it considers relevant — including `markdown`, but **not** `integrations`. Bumping this package's version alone doesn't change that digest, so without help, upgrading it can leave Astro serving markup rendered by the *previous* version until something else invalidates the cache.
+
+To avoid that, the integration stamps its own `version` onto the plugin options it hands to `markdown` (both the plain `remarkPlugins` array and the `satteriChartEditor` processor object), which **is** part of the digest. That makes the digest change on every version bump, so Astro clears its cache and re-renders instead of serving stale output.
+
+This only covers real version bumps. If you're developing the integration itself against a `file:`-installed copy (version unchanged between edits), Astro has no signal that anything changed — you still need to clear `node_modules/.astro` by hand after editing `src/remark.js` or `src/integration.js`.
+
 ## Runtime module
 
 The runtime module you point `runtime` at is loaded through a virtual Vite module (`virtual:astro-chartjs-editor/runtime`) and must export `globals` and `createChart`:
