@@ -77,19 +77,18 @@ function renderError(errorNode, error) {
   }
 }
 
+/**
+ * Writes `value` to the clipboard via the Clipboard API, with no fallback:
+ * every context these docs sites run in -- deployed over HTTPS, or `astro
+ * preview` on localhost -- is a secure context, where
+ * `navigator.clipboard.writeText` is always available, so a
+ * `document.execCommand('copy')` fallback here would only ever exercise a
+ * wholly deprecated API path real users never take. A rejection (permission
+ * denied, or a write blocked by the browser for some other reason) is left
+ * to propagate to the caller rather than swallowed.
+ */
 async function copyText(value) {
-  try {
-    await navigator.clipboard.writeText(value)
-  } catch {
-    const textarea = document.createElement('textarea')
-    textarea.value = value
-    textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    document.body.append(textarea)
-    textarea.select()
-    document.execCommand('copy')
-    textarea.remove()
-  }
+  await navigator.clipboard.writeText(value)
 }
 
 function appendChartCanvas(chartsGrid, entry, height, fallbackTitle) {
@@ -478,11 +477,16 @@ class ChartEditorElement extends HTMLElement {
     })
     runButton.addEventListener('click', () => render(editor.value))
     copyButton.addEventListener('click', async () => {
-      await copyText(editor.value)
-      copyButton.textContent = 'Copied'
-      setTimeout(() => {
-        copyButton.textContent = 'Copy'
-      }, 1200)
+      try {
+        await copyText(editor.value)
+        errorNode.replaceChildren()
+        copyButton.textContent = 'Copied'
+        setTimeout(() => {
+          copyButton.textContent = 'Copy'
+        }, 1200)
+      } catch (error) {
+        renderError(errorNode, error)
+      }
     })
     resetButton.addEventListener('click', () => {
       editor.setValue(initialCode)
