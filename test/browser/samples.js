@@ -137,6 +137,19 @@ export const CHARTS_MISSING_CONFIG_SAMPLE = `module.exports = { charts: [{ title
 // One radio choice (2 values, targeting `options`) and one range choice
 // (targeting `data`), so rebuildCharts() is exercised on both branches of
 // the config a choice can reach into.
+//
+// The `options` choice deliberately targets `scales.y.type`, not
+// `indexAxis`: Chart.js's initOptions() materializes the `_index_`/`_value_`
+// scale placeholders into concrete `x`/`y` keys and writes them back onto
+// the config object it was given. Once `options.scales.y.type` exists
+// concretely, a later in-place `indexAxis` change can't re-map which axis
+// is which -- the concrete keys outrank the placeholders on the next merge
+// -- a genuine Chart.js bug (confirmed against 4.5.1 with a bare
+// `chart.js/auto` chart, no client.js involved: mutating `indexAxis` in
+// place is broken, and so is reassigning `chart.options` to a spread copy,
+// since the copy carries the same materialized `scales` forward). Changing
+// a scale's own `type` in place doesn't hit this -- the scale is rebuilt
+// correctly -- so that's what this fixture exercises instead.
 export const CHOICES_SAMPLE = `const config = {
   type: 'bar',
   data: {
@@ -145,16 +158,15 @@ export const CHOICES_SAMPLE = `const config = {
   },
   options: {
     animation: false,
-    indexAxis: 'x',
     plugins: { legend: false },
-    scales: { x: { display: false }, y: { display: false } },
+    scales: { x: { display: false }, y: { display: false, type: 'linear' } },
   },
 }
 
 module.exports = {
   config,
   choices: [
-    { path: 'options.indexAxis', values: ['x', 'y'] },
+    { path: 'options.scales.y.type', values: ['linear', 'logarithmic'] },
     { max: 10, min: 0, path: 'data.datasets.0.borderWidth', step: 1 },
   ],
 }`
@@ -199,6 +211,32 @@ export const CHOICES_BREAKS_ON_APPLY_SAMPLE = `const config = {
   options: { animation: false, plugins: { legend: false } },
 }
 module.exports = { choices: [{ path: 'type', values: ['bar', 'not-a-real-chart-type'] }], config }`
+
+// Animation left on (200ms, linear easing) specifically to prove a choice
+// selection no longer restarts it -- the test reads the live chart's own
+// geometry across frames (via Chart.getChart() and getDatasetMeta()), so
+// this sample needs nothing beyond an ordinary animated config. Every other
+// sample above disables animation for pixel-fixture determinism; this is
+// the one place that needs it on.
+export const CHOICES_ANIMATED_SAMPLE = `const config = {
+  type: 'bar',
+  data: { labels: ['A'], datasets: [{ data: [10], label: 'Value' }] },
+  options: {
+    animation: { duration: 200, easing: 'linear' },
+    plugins: { legend: false },
+    // A fixed y-axis range, not auto-scaled: with a single data point, an
+    // auto-scaled axis rescales its max to match every new value, so the
+    // bar would render at nearly the same height regardless of the value
+    // behind it. Pinning min/max is what makes the rendered height actually
+    // move when the choice below changes the value.
+    scales: { x: { display: false }, y: { display: false, min: 0, max: 100 } },
+  },
+}
+
+module.exports = {
+  config,
+  choices: [{ max: 100, min: 0, path: 'data.datasets.0.data.0', step: 1 }],
+}`
 
 // A `charts` block (two variants sharing one `data`/`options` object) paired
 // with a choice, to prove the choice's rebuild reaches every entry in the
