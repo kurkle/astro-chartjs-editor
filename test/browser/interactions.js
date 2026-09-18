@@ -39,16 +39,6 @@ export function cmContentOf(root) {
 }
 
 /**
- * `userEvent.type`'s special-key syntax (from `@testing-library/user-event`)
- * reads `{` and `[` as the start of a key descriptor (`{Enter}`, `[ControlLeft]`).
- * Doubling them is that library's documented escape for literal braces and
- * brackets in the text -- both of which show up constantly in JS code.
- */
-function escapeForTyping(text) {
-  return text.replaceAll('{', '{{').replaceAll('[', '[[')
-}
-
-/**
  * The live CodeMirror `EditorView` behind whichever tab is currently
  * selected. `EditorView.findFromDOM()` is a public CodeMirror API that
  * recovers the view instance from any DOM node inside it, so this needs no
@@ -78,8 +68,8 @@ function currentEditorView(root) {
  * dispatch either produces what was asked for or something is genuinely
  * wrong, never a partial keystroke race to wait out.
  *
- * See `typeCurrentSectionCode()` below for the one test that still needs
- * real, character-by-character typing.
+ * See `seedCurrentSectionCode()` below for the one test that still needs a
+ * real keystroke.
  */
 export function replaceCurrentSectionCode(root, newCode) {
   const view = currentEditorView(root)
@@ -94,24 +84,36 @@ export function replaceCurrentSectionCode(root, newCode) {
 }
 
 /**
- * Clears whichever tab is currently selected (via the same deterministic
- * transaction dispatch as `replaceCurrentSectionCode`, since removing the
- * old content isn't what's under test), then types `newCode` character by
- * character through a real Playwright keyboard input
- * (`@testing-library/user-event`'s `userEvent.type`, not a transaction).
+ * Seeds whichever tab is currently selected with `code` and places the
+ * cursor at `cursorPos`, in one transaction dispatch (so the seed itself is
+ * as deterministic as `replaceCurrentSectionCode`).
  *
- * Kept for exactly one test (see client.spec.js's debounce test): the
- * point there is that typing itself -- not a click, not a dispatched
- * change -- reaches CodeMirror's own input handling and re-renders the
- * chart once the 500ms debounce elapses with no Run click. A transaction
- * dispatch wouldn't exercise that keyboard path at all, so this is the one
- * place a real keystroke stream is worth its occasional flakiness.
+ * Kept for exactly one test (see client.spec.js's debounce test), which
+ * needs a real keystroke to reach CodeMirror's own input handling -- a
+ * transaction dispatch wouldn't exercise that keyboard path, or the 500ms
+ * debounce next to it, at all. An earlier version of that test typed a
+ * whole replacement string character by character from an empty document;
+ * under CI load, `userEvent.type`'s simulated keystroke stream could fall
+ * behind CodeMirror's own auto-closing-bracket handling and race itself,
+ * occasionally dropping or reordering a character. Seeding the document to
+ * exactly one character short of the target, with the cursor placed where
+ * that character belongs, keeps the real keystroke while removing the
+ * stream for it to race against: one keystroke can't arrive out of order
+ * with itself.
  */
-export async function typeCurrentSectionCode(root, newCode) {
+export function seedCurrentSectionCode(root, code, cursorPos) {
   const view = currentEditorView(root)
-  view.dispatch({ changes: { from: 0, insert: '', to: view.state.doc.length } })
+  view.dispatch({
+    changes: { from: 0, insert: code, to: view.state.doc.length },
+    selection: { anchor: cursorPos },
+  })
 
-  await userEvent.type(cmContentOf(root), escapeForTyping(newCode))
+  const actual = view.state.doc.toString()
+  if (actual !== code) {
+    throw new Error(
+      `seedCurrentSectionCode: content reads ${JSON.stringify(actual)}, expected ${JSON.stringify(code)}`
+    )
+  }
 }
 
 export async function clickRun(root) {
