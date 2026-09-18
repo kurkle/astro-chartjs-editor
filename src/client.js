@@ -125,10 +125,27 @@ function appendChartCanvas(chartsGrid, entry, height, fallbackTitle) {
 // Defaulted here, not baked into every sample, and only when the sample's
 // own config hasn't set it -- an explicit choice a sample makes (to keep an
 // aspect ratio deliberately, say) is never overridden.
+//
+// Set in place on `config.options` (creating `options` first if the sample
+// didn't declare one), rather than returning a `{ ...config, options: {
+// ...options, maintainAspectRatio: false } }` copy. A copy used to be fine
+// here, but rebuildCharts()'s in-place choices update (see above) depends on
+// `entry.config` staying the exact object Chart.js is already running --
+// applyChoices() mutates that object's `options` subtree directly and counts
+// on chart.update() picking the change straight back up. A cloned `options`
+// object would sever that: Chart.js would keep resolving against the clone
+// made here at chart-creation time, while every later choices selection
+// mutated the original, unwrapped `options` object instead -- so any choice
+// under `options` (not `data`) would update the readout but never the
+// rendered chart. Mutating in place keeps this function's own default and
+// every later in-place update pointed at the same object.
 function withResponsiveDefault(config) {
-  const options = config?.options
-  if (options && Object.hasOwn(options, 'maintainAspectRatio')) return config
-  return { ...config, options: { ...options, maintainAspectRatio: false } }
+  if (!config) return config
+  if (!config.options) config.options = {}
+  if (!Object.hasOwn(config.options, 'maintainAspectRatio')) {
+    config.options.maintainAspectRatio = false
+  }
+  return config
 }
 
 function renderCharts(chartsGrid, previousCharts, entries, height, fallbackTitle) {
