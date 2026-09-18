@@ -10,8 +10,8 @@ import {
   openDetails,
   pressRunShortcut,
   replaceCurrentSectionCode,
+  seedCurrentSectionCode,
   selectTab,
-  typeCurrentSectionCode,
 } from './interactions.js'
 import {
   ACTIONS_SAMPLE,
@@ -206,32 +206,52 @@ describe('editing', () => {
     expect(dataText).not.toContain('9, 3, 6')
   })
 
-  // The one test in this suite that types character by character through a
-  // real CodeMirror input (typeCurrentSectionCode(), see interactions.js)
-  // instead of replaceCurrentSectionCode()'s deterministic transaction
-  // dispatch. Every other test just needs particular code sitting in the
-  // editor and doesn't care how it got there, so it uses the dispatch.
-  // This one specifically has to prove that typing itself -- not a click,
-  // not a dispatched change -- reaches CodeMirror's own input handling and
+  // The one test in this suite that types through a real CodeMirror input
+  // (a real Playwright keystroke, via userEvent.type()) instead of
+  // replaceCurrentSectionCode()'s deterministic transaction dispatch. Every
+  // other test just needs particular code sitting in the editor and
+  // doesn't care how it got there, so it uses the dispatch. This one
+  // specifically has to prove that typing itself -- not a click, not a
+  // dispatched change -- reaches CodeMirror's own input handling and
   // re-renders the chart once the 500ms debounce elapses, with no Run
   // click at all; a transaction dispatch wouldn't exercise that keyboard
   // path or the debounce timer next to it.
+  //
+  // Only one keystroke is real, though: seedCurrentSectionCode() dispatches
+  // EDITED_DATA_CODE minus its final '6', with the cursor already placed
+  // where that '6' belongs (`data: [9, 3, ]` -- a trailing comma, which is
+  // valid JS on its own, so the seed renders cleanly). A single keystroke
+  // can't land out of order with itself the way a multi-character typed
+  // stream occasionally did under CI load (see interactions.js).
   it('re-renders the chart from real typing alone, once the debounce elapses, with no Run click', async () => {
     element = mount(BASIC_SAMPLE)
     const root = shadowOf(element)
-    const canvasBefore = root.querySelector('canvas')
+    const initialCanvas = root.querySelector('canvas')
 
     await openDetails(root)
     await selectTab(root, 1) // 'data'
-    await typeCurrentSectionCode(root, EDITED_DATA_CODE)
 
-    // The 500ms debounce only starts counting down from the *last*
-    // keystroke (see editor.js's updateListener: every change clears and
-    // reschedules it), and typing EDITED_DATA_CODE character by character
-    // itself takes a variable, load-dependent amount of time first -- so
-    // this budget has to cover both, generously, rather than pin the
-    // debounce's own 500ms as if typing were instant.
-    await expect.poll(() => root.querySelector('canvas'), { timeout: 5000 }).not.toBe(canvasBefore)
+    const seedCode = EDITED_DATA_CODE.replace('9, 3, 6', '9, 3, ')
+    const cursorPos = seedCode.indexOf('9, 3, ') + '9, 3, '.length
+    seedCurrentSectionCode(root, seedCode, cursorPos)
+
+    // The seed above is itself a docChanged transaction, so it starts the
+    // same 500ms debounce and re-renders the chart on its own, before the
+    // real keystroke below ever happens. Waiting that out first, and only
+    // then capturing the "before" canvas for the real assertion, keeps the
+    // two re-renders from being conflated -- otherwise the poll after
+    // typing could pass on the seed's re-render alone.
+    await expect.poll(() => root.querySelector('canvas'), { timeout: 5000 }).not.toBe(initialCanvas)
+    const canvasBeforeTyping = root.querySelector('canvas')
+
+    await userEvent.type(cmContentOf(root), '6')
+
+    // The 500ms debounce only starts counting down once this keystroke
+    // lands, so the budget below only has to cover that -- there's no
+    // multi-character typed stream left whose duration is load-dependent.
+    await expect
+      .poll(() => root.querySelector('canvas'), { timeout: 5000 })
+      .not.toBe(canvasBeforeTyping)
     await expect.poll(() => hasInk(root.querySelector('canvas'))).toBe(true)
     expect(cmContentOf(root).textContent).toContain('9, 3, 6')
   })
