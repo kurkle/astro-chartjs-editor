@@ -11,7 +11,7 @@ function escapeAttribute(value) {
 }
 
 function getMetaValue(meta, name) {
-  const match = meta?.match(new RegExp(`(?:^|\\s)${name}=(?:"([^"]*)"|'([^']*)'|(\\S+))`))
+  const match = meta?.match(new RegExp(String.raw`(?:^|\s)${name}=(?:"([^"]*)"|'([^']*)'|(\S+))`))
   return match?.[1] ?? match?.[2] ?? match?.[3]
 }
 
