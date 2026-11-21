@@ -333,7 +333,7 @@ function buildChoiceControl(choice, selections, onSelect) {
 function readCode(template) {
   const value = template?.content.textContent ?? ''
   if (template?.dataset.encoding !== 'base64') return value
-  const bytes = Uint8Array.from(atob(value.trim()), (character) => character.charCodeAt(0))
+  const bytes = Uint8Array.from(atob(value.trim()), (character) => character.codePointAt(0))
   return new TextDecoder().decode(bytes)
 }
 
